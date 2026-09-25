@@ -1,0 +1,4 @@
+# Optional neural OCR engine (RapidOCR). Installed separately by start.bat:
+# if no compatible build exists for the local Python version, setup
+# continues in Tesseract-only mode and the app remains fully usable.
+rapidocr_onnxruntime>=1.1.0

@@ -1,0 +1,22 @@
+# Secrets locaux (jamais versionnes)
+.env
+
+# Donnees d'exploitation (documents clients, contrats, registre)
+storage/documents/*
+storage/contracts/*
+storage/backups/*
+storage/*.db
+!storage/documents/.gitkeep
+!storage/contracts/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+
+# OS / editeurs
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

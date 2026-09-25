@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>AGC Assurances — Émission RCA Triple-Document</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root { --agc-red: #F4313F; --agc-navy: #011689; }
+  body { font-family: 'Segoe UI', Roboto, Arial, sans-serif; background: #EEF1F7; }
+  .agc-red { background: var(--agc-red); }
+  .agc-navy { background: var(--agc-navy); }
+  .agc-red-text { color: var(--agc-red); }
+  .agc-navy-text { color: var(--agc-navy); }
+  .step-dot { width: 34px; height: 34px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; background: #CBD5E1; color: #fff; flex-shrink: 0; }
+  .step-active .step-dot { background: var(--agc-red); box-shadow: 0 0 0 4px rgba(244,49,63,.2); }
+  .step-done .step-dot { background: var(--agc-navy); }
+  .step-active .step-label { color: var(--agc-navy); font-weight: 800; }
+  .doc-slot { border: 2px dashed #B9C2D4; border-radius: 12px; background: #F8FAFF; cursor: pointer; transition: all .2s; position: relative; overflow: hidden; min-height: 150px; display: flex; align-items: center; justify-content: center; }
+  .doc-slot:hover { border-color: var(--agc-red); background: #FFF5F5; }
+  .doc-slot.dragover { border-color: var(--agc-navy); background: #EFF6FF; transform: scale(1.02); }
+  .doc-slot.filled { border-style: solid; border-color: var(--agc-navy); }
+  .doc-slot img.preview { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .doc-slot .badge-ok { position: absolute; top: 6px; right: 6px; z-index: 2; }
+  .field-input { width: 100%; border: 1.5px solid #CBD5E1; border-radius: 8px; padding: 8px 10px; font-size: 14px; background: #fff; }
+  .field-input:focus { outline: none; border-color: var(--agc-red); box-shadow: 0 0 0 3px rgba(244,49,63,.12); }
+  .field-input.auto { background: #F0FDF4; border-color: #86EFAC; }
+  .field-input[readonly] { background: #F1F5F9; color: #334155; }
+  label.flabel { font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: .3px; }
+  .check-ok { border-left-color: #16A34A !important; } .check-warn { border-left-color: #F59E0B !important; }
+  .check-fail { border-left-color: #DC2626 !important; } .check-na { border-left-color: #94A3B8 !important; }
+  #signature-canvas { touch-action: none; cursor: crosshair; }
+  .spinner { border: 4px solid #E2E8F0; border-top: 4px solid var(--agc-red); border-radius: 50%; width: 46px; height: 46px; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .pulse-bar { animation: pulsebar 1.6s ease-in-out infinite; }
+  @keyframes pulsebar { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+  details.doc-panel summary { cursor: pointer; list-style: none; }
+  details.doc-panel summary::-webkit-details-marker { display: none; }
+  .toast { animation: slidein .25s ease-out; }
+  @keyframes slidein { from { transform: translateX(30px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  .navtab { padding: 8px 14px; border-radius: 10px 10px 0 0; font-weight: 800; font-size: 12px; color: #64748B; background: #E2E8F0; white-space: nowrap; }
+  .navtab.active { color: #fff; background: var(--agc-navy); }
+  .doctab { padding: 8px 16px; border-radius: 8px; font-weight: 800; font-size: 13px; color: #475569; background: #F1F5F9; border: 2px solid transparent; }
+  .doctab.active { color: var(--agc-navy); border-color: var(--agc-navy); background: #EFF6FF; }
+  table.reg { border-collapse: collapse; width: 100%; font-size: 13px; }
+  table.reg th { background: var(--agc-navy); color: #fff; padding: 8px 6px; text-align: left; font-size: 11px; text-transform: uppercase; position: sticky; top: 0; }
+  table.reg td { padding: 7px 6px; border-bottom: 1px solid #E2E8F0; vertical-align: top; }
+  table.reg tr:hover td { background: #F8FAFF; }
+  tr.client-row { cursor: pointer; }
+  .btn-xs { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; border: 1.5px solid #CBD5E1; color: #334155; background: #fff; white-space: nowrap; }
+  .btn-xs:hover { border-color: var(--agc-navy); color: var(--agc-navy); }
+  .btn-xs.danger { color: #DC2626; border-color: #FCA5A5; }
+  .btn-xs.danger:hover { border-color: #DC2626; }
+  .bar-track { background: #E2E8F0; border-radius: 6px; height: 14px; overflow: hidden; }
+  .bar-fill { background: var(--agc-navy); height: 100%; border-radius: 6px; }
+  .kpi { background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.1); padding: 12px; border-top: 4px solid var(--agc-navy); }
+  .badge { display: inline-block; font-size: 10px; font-weight: 800; border-radius: 9999px; padding: 1px 8px; }
+  .sig-opt { border: 2px solid #CBD5E1; border-radius: 10px; padding: 8px 12px; font-size: 13px; font-weight: 700; color: #475569; cursor: pointer; }
+  .sig-opt.sel { border-color: var(--agc-navy); color: var(--agc-navy); background: #EFF6FF; }
+</style>
+</head>
+<body>
+
+<!-- ================= AGC HEADER ================= -->
+<header class="agc-navy text-white shadow-lg sticky top-0 z-40">
+  <div class="max-w-6xl mx-auto px-3 py-2 flex items-center gap-3">
+    <img src="/static/agc_logo.png" alt="AGC" class="rounded shadow bg-white" style="height:52px;width:52px;object-fit:cover" onerror="this.outerHTML='<div class=&quot;agc-red rounded flex items-center justify-center text-white font-black text-xl&quot; style=&quot;height:52px;width:52px&quot;>AGC</div>'">
+    <div class="flex-1 min-w-0">
+      <h1 class="font-extrabold text-sm sm:text-lg leading-tight truncate"><a href="#" id="home-link" class="hover:underline" data-i18n="brand">AGC Assurances — Émission RCA</a></h1>
+      <p class="text-[11px] sm:text-xs text-blue-200" data-i18n="brand_sub">Outil interne agence</p>
+    </div>
+    <button onclick="toggleLang()" class="text-[11px] font-bold bg-white/15 border border-white/30 rounded-full px-3 py-1" id="lang-btn" title="Français / English">EN</button>
+    <button id="exp-bell" class="hidden text-[11px] font-bold bg-amber-500 rounded-full px-3 py-1" title="Contrats expirant bientôt">◷ <span id="exp-count">0</span></button>
+    <span id="ver-chip" class="text-[11px] font-bold bg-white/15 rounded-full px-3 py-1" title="Version">…</span>
+  </div>
+  <div class="bg-white border-b">
+    <div class="max-w-6xl mx-auto px-3 pt-2 flex items-end gap-1 overflow-x-auto">
+      <button class="navtab active" id="tab-dossier" onclick="showView('dossier')" data-i18n="nav_dossier">NOUVEAU</button>
+      <button class="navtab" id="tab-registre" onclick="showView('registre')"><span data-i18n="nav_reg">RÉPERTOIRE</span> <span id="reg-count" class="ml-1 text-[11px] bg-white/30 rounded-full px-2">0</span></button>
+      <button class="navtab" id="tab-pilotage" onclick="showView('pilotage')" data-i18n="nav_pilot">PILOTAGE</button>
+    </div>
+    <div class="max-w-6xl mx-auto px-3 py-2 flex items-center justify-between sm:justify-center sm:gap-10" id="stepper">
+      <div class="flex items-center gap-2" data-step="1"><div class="step-dot">1</div><span class="step-label text-xs text-slate-500" data-i18n="step1">Photos client</span></div>
+      <div class="flex items-center gap-2" data-step="2"><div class="step-dot">2</div><span class="step-label text-xs text-slate-500" data-i18n="step2">Contrôle OCR</span></div>
+      <div class="flex items-center gap-2" data-step="3"><div class="step-dot">3</div><span class="step-label text-xs text-slate-500" data-i18n="step3">Signature</span></div>
+      <div class="flex items-center gap-2" data-step="4"><div class="step-dot">4</div><span class="step-label text-xs text-slate-500" data-i18n="step4">Documents</span></div>
+    </div>
+  </div>
+</header>
+
+<div id="toasts" class="fixed top-20 right-3 z-50 space-y-2 w-80 max-w-[90vw]"></div>
+
+<main class="max-w-6xl mx-auto px-3 py-4 pb-16">
+
+<div id="view-dossier">
+<!-- ================= SCREEN 1 : PHOTOS ================= -->
+<section id="screen-1">
+  <div class="bg-white rounded-xl shadow p-4 mb-4 border-t-4" style="border-color: var(--agc-red)">
+    <h2 class="agc-navy-text font-extrabold text-lg" data-i18n="s1_h">1. Photos transmises par le client</h2>
+    <p class="text-sm text-slate-500" data-i18n="s1_p">Importez les photos reçues (WhatsApp, dépôt en agence, email). Les 3 documents sont obligatoires. Formats : JPG, PNG, WebP. Tous les formats de CNI camerounaise sont acceptés.</p>
+  </div>
+
+  <div class="grid md:grid-cols-3 gap-4">
+    <div class="bg-white rounded-xl shadow overflow-hidden">
+      <div class="agc-navy text-white px-4 py-2 font-bold text-sm flex justify-between items-center">
+        <span data-i18n="s1_cni">CNI — IDENTITÉ</span><span class="text-[10px] bg-red-500 rounded-full px-2 py-0.5" data-i18n="req">OBLIGATOIRE</span>
+      </div>
+      <div class="p-3 space-y-3">
+        <div>
+          <label class="flabel" data-i18n="s1_cni_r">Recto — Identité (obligatoire)</label>
+          <div class="doc-slot mt-1" data-slot="cni_recto">
+            <span class="text-center text-slate-400 text-xs px-4 font-bold"><span data-i18n="photo">PHOTO</span><br><span class="font-normal" data-i18n="drop">cliquer ou glisser-déposer</span></span>
+            <input type="file" accept="image/*" class="hidden" data-input="cni_recto">
+          </div>
+        </div>
+        <div>
+          <label class="flabel" data-i18n="s1_cni_v">Verso — N° CNI (recommandé)</label>
+          <div class="doc-slot mt-1" data-slot="cni_verso">
+            <span class="text-center text-slate-400 text-xs px-4 font-bold"><span data-i18n="photo">PHOTO</span><br><span class="font-normal" data-i18n="drop">cliquer ou glisser-déposer</span></span>
+            <input type="file" accept="image/*" class="hidden" data-input="cni_verso">
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="bg-white rounded-xl shadow overflow-hidden">
+      <div class="agc-navy text-white px-4 py-2 font-bold text-sm flex justify-between items-center">
+        <span data-i18n="s1_cg">CARTE GRISE — VÉHICULE</span><span class="text-[10px] bg-red-500 rounded-full px-2 py-0.5" data-i18n="req">OBLIGATOIRE</span>
+      </div>
+      <div class="p-3 space-y-3">
+        <div>
+          <label class="flabel" data-i18n="s1_cg_r">Face administrative — Immat. / Titulaire (obligatoire)</label>
+          <div class="doc-slot mt-1" data-slot="cg_recto">
+            <span class="text-center text-slate-400 text-xs px-4 font-bold"><span data-i18n="photo">PHOTO</span><br><span class="font-normal" data-i18n="drop">cliquer ou glisser-déposer</span></span>
+            <input type="file" accept="image/*" class="hidden" data-input="cg_recto">
+          </div>
+        </div>
+        <div>
+          <label class="flabel" data-i18n="s1_cg_v">Face technique — Caractéristiques (recommandé)</label>
+          <div class="doc-slot mt-1" data-slot="cg_verso">
+            <span class="text-center text-slate-400 text-xs px-4 font-bold"><span data-i18n="photo">PHOTO</span><br><span class="font-normal" data-i18n="drop">cliquer ou glisser-déposer</span></span>
+            <input type="file" accept="image/*" class="hidden" data-input="cg_verso">
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="bg-white rounded-xl shadow overflow-hidden">
+      <div class="agc-navy text-white px-4 py-2 font-bold text-sm flex justify-between items-center">
+        <span data-i18n="s1_pm">PERMIS DE CONDUIRE</span><span class="text-[10px] bg-red-500 rounded-full px-2 py-0.5" data-i18n="req">OBLIGATOIRE</span>
+      </div>
+      <div class="p-3 space-y-3">
+        <div>
+          <label class="flabel" data-i18n="s1_pm_r">Recto — Titulaire et validité (obligatoire)</label>
+          <div class="doc-slot mt-1" data-slot="permis" style="min-height:180px">
+            <span class="text-center text-slate-400 text-xs px-4 font-bold"><span data-i18n="photo">PHOTO</span><br><span class="font-normal" data-i18n="drop">cliquer ou glisser-déposer</span></span>
+            <input type="file" accept="image/*" class="hidden" data-input="permis">
+          </div>
+        </div>
+        <div>
+          <label class="flabel" data-i18n="s1_pm_v">Verso — Tableau des catégories (recommandé)</label>
+          <div class="doc-slot mt-1" data-slot="permis_verso">
+            <span class="text-center text-slate-400 text-xs px-4 font-bold"><span data-i18n="photo">PHOTO</span><br><span class="font-normal" data-i18n="drop">cliquer ou glisser-déposer</span></span>
+            <input type="file" accept="image/*" class="hidden" data-input="permis_verso">
+          </div>
+        </div>
+        <div class="text-[11px] text-slate-500 bg-blue-50 border border-blue-200 rounded-lg p-2" data-i18n="s1_pm_note">Le permis doit être en cours de validité. Le contrôle le vérifie automatiquement.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-4 bg-white rounded-xl shadow p-4 flex flex-col sm:flex-row items-center gap-3">
+    <p class="text-xs text-slate-500 flex-1" data-i18n="s1_hint">Documents à plat, nets, sans reflet. En cas de photo inexploitable, le champ reste vide et modifiable à l'étape suivante.</p>
+    <button onclick="showView('registre')" class="px-6 py-3 rounded-xl border-2 border-slate-300 font-bold text-slate-600 text-sm" data-i18n="s1_reg">CONSULTER LE RÉPERTOIRE</button>
+    <button id="btn-analyze" disabled class="agc-red text-white font-extrabold px-8 py-3 rounded-xl shadow-lg disabled:opacity-40 disabled:shadow-none text-sm sm:text-base" data-i18n="s1_go">LANCER LE CONTRÔLE OCR</button>
+  </div>
+
+  <div id="progress-box" class="hidden mt-4 bg-white rounded-xl shadow p-6 text-center">
+    <div class="spinner mx-auto mb-3"></div>
+    <p class="font-bold agc-navy-text" id="progress-title">Nettoyage des images…</p>
+    <p class="text-xs text-slate-500 pulse-bar" data-i18n="s1_prog">Redressement · Binarisation · Double moteur OCR local · Recoupement des 3 documents</p>
+    <p class="text-[11px] text-slate-400 mt-2" data-i18n="s1_bg">Traitement en tâche de fond — vous pouvez patienter sur cette page.</p>
+  </div>
+</section>
+
+<!-- ================= SCREEN 2 : CONTROLE ================= -->
+<section id="screen-2" class="hidden">
+  <div id="mode-banner" class="hidden rounded-xl shadow p-4 mb-4 text-white" style="background: linear-gradient(135deg,#011689,#1E40AF)"></div>
+  <div id="score-banner" class="rounded-xl shadow p-4 mb-4 text-white"></div>
+
+  <div id="checks-card" class="bg-white rounded-xl shadow p-4 mb-4">
+    <h3 class="font-extrabold agc-navy-text mb-2" data-i18n="s2_checks">Vérifications croisées des 3 documents</h3>
+    <div id="checks-list" class="space-y-2"></div>
+  </div>
+
+  <div class="grid md:grid-cols-3 gap-4 mb-4" id="doc-panels"></div>
+
+  <div class="bg-white rounded-xl shadow overflow-hidden mb-4">
+    <div class="agc-red text-white px-4 py-2 font-extrabold text-sm" data-i18n="s2_dossier">DOSSIER FUSIONNÉ — Contrôlez et complétez (champs verts = lus par OCR)</div>
+    <div class="p-4">
+      <h4 class="font-bold text-sm agc-navy-text mb-2 border-b pb-1" data-i18n="s2_id">Souscripteur / Assuré</h4>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4" id="form-identity"></div>
+      <h4 class="font-bold text-sm agc-navy-text mb-2 border-b pb-1" data-i18n="s2_veh">Véhicule</h4>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2" id="form-vehicle"></div>
+      <div id="genre-line" class="text-xs text-slate-500 mb-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2"></div>
+      <div id="ptac-line" class="text-xs text-slate-500 mb-4 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2"></div>
+      <h4 class="font-bold text-sm agc-navy-text mb-2 border-b pb-1" data-i18n="s2_drv">Conducteur</h4>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4" id="form-license"></div>
+      <h4 class="font-bold text-sm agc-navy-text mb-2 border-b pb-1" data-i18n="s2_pol">Police, prime (FCFA) et suivi agence</h4>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2" id="form-policy"></div>
+      <div id="avenant-fields" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2"></div>
+      <div id="prime-box" class="mt-3 rounded-xl p-3 text-sm font-bold"></div>
+      <details class="mt-3 text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+        <summary class="font-bold text-slate-500 cursor-pointer" data-i18n="s2_internal">Vérification interne (lus par OCR, non imprimés)</summary>
+        <div id="internal-line" class="mt-1 text-slate-600"></div>
+      </details>
+    </div>
+  </div>
+
+  <div class="flex justify-between">
+    <button id="btn-back-1" class="px-6 py-3 rounded-xl border-2 border-slate-300 font-bold text-slate-600 text-sm" data-i18n="s2_back">RETOUR PHOTOS</button>
+    <button id="btn-to-sign" class="agc-navy text-white px-8 py-3 rounded-xl font-extrabold shadow-lg text-sm sm:text-base" data-i18n="s2_next">CONTINUER — SIGNATURE</button>
+  </div>
+</section>
+
+<!-- ================= SCREEN 3 : SIGNATURE ================= -->
+<section id="screen-3" class="hidden">
+  <div class="bg-white rounded-xl shadow p-4 mb-4 border-t-4" style="border-color: var(--agc-red)">
+    <h2 class="agc-navy-text font-extrabold text-lg" data-i18n="s3_h">3. Signature du souscripteur</h2>
+    <p class="text-sm text-slate-500" id="sign-recap"></p>
+  </div>
+  <div class="bg-white rounded-xl shadow p-4">
+    <div class="flex flex-col sm:flex-row gap-2 mb-3">
+      <button class="sig-opt sel flex-1" data-sig="agence" data-i18n="s3_o1">Signer ici (client présent)</button>
+      <button class="sig-opt flex-1" data-sig="photo" data-i18n="s3_o2">Photo de signature envoyée par le client</button>
+      <button class="sig-opt flex-1" data-sig="differee" data-i18n="s3_o3">Signature à régulariser plus tard</button>
+    </div>
+    <div id="sig-agence-box">
+      <canvas id="signature-canvas" class="w-full border-2 border-dashed border-slate-300 rounded-xl bg-slate-50" height="220"></canvas>
+      <p class="text-[11px] text-slate-400 mt-1" data-i18n="s3_note1">Signature relevée en agence, au doigt ou à la souris.</p>
+    </div>
+    <div id="sig-photo-box" class="hidden">
+      <label class="doc-slot" id="sig-photo-slot" style="min-height:180px">
+        <span class="text-center text-slate-400 text-xs px-4 font-bold"><span data-i18n="photo">PHOTO</span><br><span class="font-normal" data-i18n="s3_drop">signature sur papier — cliquer ou glisser-déposer</span></span>
+        <input type="file" accept="image/*" class="hidden" id="sig-photo-input">
+      </label>
+      <p class="text-[11px] text-slate-400 mt-1" data-i18n="s3_note2">Le client signe sur papier, photographie et envoie via WhatsApp. Importez cette photo.</p>
+    </div>
+    <div id="sig-differee-box" class="hidden">
+      <div class="bg-amber-50 border border-amber-400 rounded-xl p-4 text-sm text-amber-800 font-bold" data-i18n="s3_note3">Émission sans signature : le contrat portera la mention « Signature à régulariser » jusqu'au passage du client.</div>
+    </div>
+    <div class="flex flex-col sm:flex-row gap-2 mt-3">
+      <button id="btn-clear-sign" class="flex-1 px-6 py-3 rounded-xl border-2 border-slate-300 font-bold text-slate-600 text-sm" data-i18n="s3_clear">EFFACER</button>
+      <button id="btn-back-2" class="flex-1 px-6 py-3 rounded-xl border-2 border-slate-300 font-bold text-slate-600 text-sm" data-i18n="s3_back">RETOUR DOSSIER</button>
+      <button id="btn-generate" class="agc-red flex-1 text-white px-6 py-3 rounded-xl font-extrabold shadow-lg text-sm sm:text-base" data-i18n="s3_emit">ÉMETTRE LES DOCUMENTS</button>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SCREEN 4 : DOCUMENTS ================= -->
+<section id="screen-4" class="hidden">
+  <div class="bg-white rounded-xl shadow p-6 text-center mb-4 border-t-4" style="border-color: #16A34A">
+    <div class="mx-auto mb-2 rounded-full bg-green-600 text-white font-black text-2xl flex items-center justify-center" style="width:52px;height:52px">✓</div>
+    <h2 class="agc-navy-text font-extrabold text-xl" id="final-title">Documents émis</h2>
+    <p class="text-sm text-slate-500 mt-1"><span data-i18n="s4_pol">N° de Police :</span> <b id="final-police" class="agc-red-text text-base"></b></p>
+    <p class="text-sm text-slate-500"><span data-i18n="s4_quit">Quittance :</span> <b id="final-quittance"></b> · <span data-i18n="s4_prime">Prime TTC :</span> <b id="final-prime" class="agc-navy-text"></b></p>
+    <div id="final-sig" class="mt-2"></div>
+    <div id="final-warnings" class="mt-2 text-xs"></div>
+    <div class="flex flex-wrap justify-center gap-2 mt-4">
+      <button class="doctab" data-doc="quittance" data-i18n="s4_tq">QUITTANCE</button>
+      <button class="doctab active" data-doc="police">CONDITIONS PARTICULIÈRES</button>
+      <button class="doctab" data-doc="facture" data-i18n="s4_tf">FACTURE</button>
+    </div>
+    <div class="flex flex-wrap justify-center gap-2 mt-3">
+      <a id="btn-download-pdf" href="#" class="agc-navy text-white px-6 py-3 rounded-xl font-extrabold shadow text-sm" download data-i18n="s4_dl">TÉLÉCHARGER LE DOCUMENT AFFICHÉ</a>
+      <a id="btn-dossier-pdf" href="#" class="agc-navy text-white px-6 py-3 rounded-xl font-extrabold shadow text-sm" download data-i18n="s4_dos">PDF UNIQUE (3 EN 1)</a>
+      <a id="btn-eml" href="#" class="bg-slate-600 text-white px-6 py-3 rounded-xl font-extrabold shadow text-sm" download data-i18n="s4_eml">EMAIL PRÊT (.EML)</a>
+      <a id="btn-whatsapp" href="#" target="_blank" class="bg-green-600 text-white px-6 py-3 rounded-xl font-extrabold shadow text-sm" data-i18n="s4_wa">WHATSAPP CLIENT</a>
+    </div>
+    <div class="flex flex-wrap justify-center gap-2 mt-2">
+      <button id="btn-back-3" class="px-6 py-3 rounded-xl border-2 border-slate-300 font-bold text-slate-600 text-sm" data-i18n="s4_back">RETOUR AU DOSSIER</button>
+      <button id="btn-new" class="px-6 py-3 rounded-xl border-2 border-slate-300 font-bold text-slate-600 text-sm" data-i18n="s4_new">NOUVEAU DOSSIER</button>
+    </div>
+  </div>
+  <div class="bg-white rounded-xl shadow p-2">
+    <iframe id="pdf-preview-frame" class="w-full rounded-lg" style="height:75vh" title="Document PDF"></iframe>
+  </div>
+</section>
+</div>
+
+<!-- ================= REPERTOIRE VIEW ================= -->
+<div id="view-registre" class="hidden">
+  <div class="bg-white rounded-xl shadow p-4 mb-4 border-t-4" style="border-color: var(--agc-navy)">
+    <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+      <div class="flex-1">
+        <h2 class="agc-navy-text font-extrabold text-lg" data-i18n="reg_h">Répertoire des clients</h2>
+        <p class="text-sm text-slate-500"><b id="reg-count-2">0</b> <span data-i18n="reg_clients">client(s)</span> · <b id="reg-count-3">0</b> <span data-i18n="reg_pols">contrat(s)</span>. <span data-i18n="reg_hint">Cliquez sur un client pour voir ses contrats, véhicules et documents.</span> <b id="reg-scope"></b></p>
+      </div>
+      <input id="reg-search" data-i18n-ph="reg_search" placeholder="Rechercher nom, téléphone, NUI, police, immat…" class="field-input sm:w-72">
+      <button class="px-6 py-2 rounded-xl border-2 border-slate-300 font-bold text-slate-600 text-sm" onclick="showView('dossier')" data-i18n="reg_back">RETOUR DOSSIER EN COURS</button>
+    </div>
+  </div>
+  <div class="bg-white rounded-xl shadow overflow-auto" style="max-height:70vh">
+    <table class="reg">
+      <thead><tr><th data-i18n="th_client">Client</th><th data-i18n="th_tel">Téléphone</th><th data-i18n="th_n">Contrats</th><th data-i18n="th_veh">Véhicule(s)</th><th data-i18n="th_last">Dernier contrat</th></tr></thead>
+      <tbody id="reg-body"><tr><td colspan="5" class="text-center text-slate-400 py-6" data-i18n="loading">Chargement…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ================= PILOTAGE VIEW ================= -->
+<div id="view-pilotage" class="hidden">
+  <div class="bg-white rounded-xl shadow p-4 mb-4 border-t-4" style="border-color: var(--agc-red)">
+    <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+      <div class="flex-1">
+        <h2 class="agc-navy-text font-extrabold text-lg" data-i18n="pi_h">Pilotage de la production</h2>
+        <p class="text-sm text-slate-500"><span data-i18n="pi_sub">Chiffres clés, sauvegarde, imports et journal.</span> <b id="pilot-scope"></b></p>
+      </div>
+      <button class="px-4 py-2 rounded-xl border-2 border-slate-300 font-bold text-slate-600 text-xs" onclick="loadPilotage()" data-i18n="pi_refresh">ACTUALISER</button>
+      <a id="btn-exp-csv" href="#" class="px-4 py-2 rounded-xl agc-navy text-white font-bold text-xs" download>EXPORT CSV</a>
+      <a id="btn-exp-json" href="#" class="px-4 py-2 rounded-xl agc-navy text-white font-bold text-xs" download>EXPORT JSON</a>
+    </div>
+  </div>
+  <div id="pilotage-body"><p class="text-center text-slate-400 py-6" data-i18n="loading">Chargement…</p></div>
+  <div class="grid md:grid-cols-2 gap-4 mb-4">
+    <div class="bg-white rounded-xl shadow p-4">
+      <h3 class="font-extrabold agc-navy-text mb-2" data-i18n="ad_bk">Sauvegarde / Restauration</h3>
+      <p class="text-xs text-slate-500 mb-2" data-i18n="ad_bk_p">La sauvegarde contient le répertoire, les contrats PDF et les photos. Conservez-la hors du PC.</p>
+      <div class="flex flex-wrap gap-2 items-center mb-2">
+        <a id="btn-backup" href="#" class="agc-navy text-white px-4 py-2 rounded-xl font-bold text-xs" download data-i18n="ad_bk_dl">TÉLÉCHARGER LA SAUVEGARDE</a>
+        <label class="text-xs font-bold text-slate-600"><span data-i18n="ad_bk_rs">Restaurer :</span> <input id="restore-file" type="file" accept=".zip" class="text-xs"></label>
+      </div>
+      <div id="autobk-body" class="text-xs text-slate-500"></div>
+      <div class="flex flex-wrap gap-2 items-center mt-2">
+        <a id="btn-backup-latest" href="#" class="px-4 py-2 rounded-xl border-2 border-slate-300 font-bold text-slate-600 text-xs" download data-i18n="ad_bk_auto">TÉLÉCHARGER LA DERNIÈRE AUTO</a>
+      </div>
+    </div>
+    <div class="bg-white rounded-xl shadow p-4">
+      <h3 class="font-extrabold agc-navy-text mb-2" data-i18n="ad_imp">Import de clients (CSV)</h3>
+      <p class="text-xs text-slate-500 mb-2" data-i18n="ad_imp_p">Colonnes : police_no, nom, prenoms, telephone, immatriculation, marque, modele, effet, expiration, prime_ttc…</p>
+      <input id="import-file" type="file" accept=".csv" class="text-xs">
+    </div>
+  </div>
+  <div class="bg-white rounded-xl shadow p-4">
+    <h3 class="font-extrabold agc-navy-text mb-2" data-i18n="ad_audit">Journal d'activité</h3>
+    <div class="overflow-auto" style="max-height:40vh"><table class="reg">
+      <thead><tr><th>Date</th><th data-i18n="th_agent">Agent</th><th>Action</th><th>Police</th><th data-i18n="th_det">Détail</th></tr></thead>
+      <tbody id="audit-body"><tr><td colspan="5" class="text-center text-slate-400 py-4" data-i18n="loading">Chargement…</td></tr></tbody>
+    </table></div>
+</div>
+
+</main>
+
+<!-- confirm modal -->
+<div id="modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+  <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm">
+    <h3 class="font-extrabold agc-navy-text mb-2" data-i18n="cf_h">Confirmer</h3>
+    <p class="text-sm text-slate-600 mb-4" id="modal-text"></p>
+    <div class="flex gap-2 justify-end">
+      <button id="modal-cancel" class="px-5 py-2 rounded-lg border-2 border-slate-300 font-bold text-slate-600 text-sm" data-i18n="cf_no">ANNULER</button>
+      <button id="modal-ok" class="agc-red px-5 py-2 rounded-lg font-bold text-white text-sm" data-i18n="cf_yes">CONFIRMER</button>
+    </div>
+  </div>
+</div>
+
+<!-- form modal -->
+<div id="form-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+  <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg max-h-[85vh] overflow-auto">
+    <h3 class="font-extrabold agc-navy-text mb-3" id="fm-title">Titre</h3>
+    <div id="fm-body"></div>
+    <div class="flex gap-2 justify-end mt-4">
+      <button id="fm-cancel" class="px-5 py-2 rounded-lg border-2 border-slate-300 font-bold text-slate-600 text-sm" data-i18n="cf_no">ANNULER</button>
+      <button id="fm-ok" class="agc-navy px-5 py-2 rounded-lg font-bold text-white text-sm" data-i18n="cf_yes">CONFIRMER</button>
+    </div>
+  </div>
+</div>
+<div id="pdf-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+  <div class="bg-white rounded-xl shadow-2xl p-4 w-full max-w-4xl max-h-[90vh] flex flex-col">
+    <div class="flex items-center gap-2 mb-2">
+      <h3 class="font-extrabold agc-navy-text flex-1 text-sm" id="pv-title">Aperçu du document</h3>
+      <a id="pv-download" href="#" class="agc-navy text-white px-4 py-2 rounded-lg font-bold text-xs" download data-i18n="pv_dl">TÉLÉCHARGER</a>
+      <button onclick="document.getElementById('pdf-modal').classList.add('hidden')" class="px-4 py-2 rounded-lg border-2 border-slate-300 font-bold text-slate-600 text-xs" data-i18n="cf_no">ANNULER</button>
+    </div>
+    <iframe id="pv-frame" class="w-full rounded-lg border flex-1" style="min-height:70vh" title="PDF"></iframe>
+  </div>
+</div>
+
+<footer class="agc-navy text-white text-center text-[11px] py-3 mt-6" data-i18n="footer"><b>AGC Assurances — Générales du Cameroun</b> · Émission RCA conforme au Code CIMA · Usage interne agence · v5.3.1</footer>
+
+<script>
+const I18N = {
+fr: {
+brand: "AGC Assurances — Émission RCA", brand_sub: "Outil interne agence",
+nav_dossier: "NOUVEAU", nav_reg: "RÉPERTOIRE", nav_pilot: "PILOTAGE",
+step1: "Photos client", step2: "Contrôle OCR", step3: "Signature", step4: "Documents",
+pv_title: "Aperçu du document", pv_dl: "TÉLÉCHARGER",
+s1_h: "1. Photos transmises par le client", s1_p: "Importez les photos reçues (WhatsApp, dépôt en agence, email). Les 3 documents sont obligatoires. Formats : JPG, PNG, WebP. Tous les formats de CNI camerounaise sont acceptés.",
+s1_cni: "CNI — IDENTITÉ", s1_cg: "CARTE GRISE — VÉHICULE", s1_pm: "PERMIS DE CONDUIRE", req: "OBLIGATOIRE",
+s1_cni_r: "Recto — Identité (obligatoire)", s1_cni_v: "Verso — N° CNI (recommandé)",
+s1_cg_r: "Face administrative — Immat. / Titulaire (obligatoire)", s1_cg_v: "Face technique — Caractéristiques (recommandé)",
+s1_pm_r: "Recto — Titulaire et validité (obligatoire)", s1_pm_v: "Verso — Tableau des catégories (recommandé)", s1_pm_note: "Le permis doit être en cours de validité. Le contrôle le vérifie automatiquement.",
+photo: "PHOTO", drop: "cliquer ou glisser-déposer",
+s1_hint: "Documents à plat, nets, sans reflet. En cas de photo inexploitable, le champ reste vide et modifiable à l'étape suivante.",
+s1_reg: "CONSULTER LE RÉPERTOIRE", s1_go: "LANCER LE CONTRÔLE OCR",
+s1_prog: "Redressement · Binarisation · Double moteur OCR local · Recoupement des 3 documents",
+s1_bg: "Traitement en tâche de fond — vous pouvez patienter sur cette page.",
+s2_checks: "Vérifications croisées des 3 documents", s2_dossier: "DOSSIER FUSIONNÉ — Contrôlez et complétez (champs verts = lus par OCR)",
+s2_id: "Souscripteur / Assuré", s2_veh: "Véhicule", s2_drv: "Conducteur", s2_pol: "Police, prime (FCFA) et suivi agence",
+s2_internal: "Vérification interne (lus par OCR, non imprimés)", s2_back: "RETOUR PHOTOS", s2_back_reg: "RETOUR RÉPERTOIRE", s2_next: "CONTINUER — SIGNATURE",
+s3_h: "3. Signature du souscripteur", s3_o1: "Signer ici (client présent)", s3_o2: "Photo de signature envoyée par le client", s3_o3: "Signature à régulariser plus tard",
+s3_note1: "Signature relevée en agence, au doigt ou à la souris.", s3_drop: "signature sur papier — cliquer ou glisser-déposer",
+s3_note2: "Le client signe sur papier, photographie et envoie via WhatsApp. Importez cette photo.",
+s3_note3: "Émission sans signature : le contrat portera la mention « Signature à régulariser » jusqu'au passage du client.",
+s3_clear: "EFFACER", s3_back: "RETOUR DOSSIER", s3_emit: "ÉMETTRE LES DOCUMENTS", s3_emit_av: "ÉMETTRE L'AVENANT", s3_emit_rn: "ÉMETTRE LA NOUVELLE POLICE",
+s4_pol: "N° de Police :", s4_quit: "Quittance :", s4_prime: "Prime TTC :", s4_tq: "QUITTANCE", s4_tf: "FACTURE",
+s4_dl: "TÉLÉCHARGER LE DOCUMENT AFFICHÉ", s4_dos: "PDF UNIQUE (3 EN 1)", s4_eml: "EMAIL PRÊT (.EML)", s4_wa: "WHATSAPP CLIENT",
+s4_back: "RETOUR AU DOSSIER", s4_new: "NOUVEAU DOSSIER", s4_ok: "Documents émis — Dossier archivé au répertoire", s4_sig: "Signature client à régulariser",
+reg_h: "Répertoire des clients", reg_clients: "client(s)", reg_pols: "contrat(s)", reg_hint: "Cliquez sur un client pour voir ses contrats, véhicules et documents.",
+reg_search: "Rechercher nom, téléphone, NUI, police, immat…", reg_back: "RETOUR DOSSIER EN COURS",
+th_client: "Client", th_tel: "Téléphone", th_n: "Contrats", th_veh: "Véhicule(s)", th_last: "Dernier contrat",
+loading: "Chargement…", all: "— tous les dossiers",
+pi_h: "Pilotage de la production", pi_sub: "Chiffres clés, sauvegarde, imports et journal.", pi_refresh: "ACTUALISER",
+ad_bk: "Sauvegarde / Restauration", ad_bk_p: "La sauvegarde contient le répertoire, les contrats PDF et les photos. Conservez-la hors du PC.",
+ad_bk_dl: "TÉLÉCHARGER LA SAUVEGARDE", ad_bk_rs: "Restaurer :", ad_bk_auto: "TÉLÉCHARGER LA DERNIÈRE AUTO",
+ad_imp: "Import de clients (CSV)", ad_imp_p: "Colonnes : police_no, nom, prenoms, telephone, immatriculation, marque, modele, effet, expiration, prime_ttc…",
+ad_audit: "Journal d'activité", th_agent: "Agent", th_det: "Détail",
+cf_h: "Confirmer", cf_no: "ANNULER", cf_yes: "CONFIRMER",
+footer: "<b>AGC Assurances — Générales du Cameroun</b> · Émission RCA conforme au Code CIMA · Usage interne agence · v5.3.1",
+f_titre: "Titre", f_nom: "Nom", f_prenoms: "Prénoms", f_pc: "P/C — Pour le compte de", f_nui: "NUI", f_prof: "Profession", f_adr: "Adresse", f_tel: "Téléphone *", f_email: "Email",
+f_immat: "Immatriculation", f_marque: "Marque", f_modele: "Type / Modèle", f_genre: "Genre", f_energie: "Énergie", f_places: "Places", f_pcv: "Puissance (CV)", f_cyl: "Cylindrée",
+f_pv: "Poids vide", f_cu: "Charge utile", f_pt: "Poids total (CG)", f_ptac: "PTAC calculé (vide + C.U.)", f_carr: "Carrosserie", f_mes: "1re mise en circul.", f_vin: "N° Série / VIN", f_cat: "Catégorie tarif",
+f_cond: "Conducteur habituel", f_effet: "Effet (JJ/MM/AAAA)", f_dur: "Durée", f_exp: "Expiration", f_mvt: "Mouvement", f_int: "Intermédiaire", f_code: "Code Intermédiaire",
+f_lieu: "Lieu émission", f_canal: "Dossier reçu via", f_net: "Prime nette", f_acc: "Accessoires", f_fich: "Frais fichier", f_tva: "TVA", f_rose: "Carte rose", f_ttc: "Prime TTC",
+av_type: "Type d'avenant *", av_motif: "Motif de l'avenant *",
+days: "jours", canal_ag: "Agence", canal_ap: "Apporteur", 
+},
+en: {
+brand: "AGC Assurances — RCA Issuing", brand_sub: "Internal agency tool",
+nav_dossier: "NEW", nav_reg: "DIRECTORY", nav_pilot: "DASHBOARD",
+step1: "Client photos", step2: "OCR check", step3: "Signature", step4: "Documents",
+pv_title: "Document preview", pv_dl: "DOWNLOAD",
+s1_h: "1. Photos sent by the client", s1_p: "Upload the photos received (WhatsApp, agency drop-off, email). All 3 documents are required. Formats: JPG, PNG, WebP. All Cameroonian ID card formats accepted.",
+s1_cni: "ID CARD — IDENTITY", s1_cg: "VEHICLE REGISTRATION", s1_pm: "DRIVER'S LICENSE", req: "REQUIRED",
+s1_cni_r: "Front — Identity (required)", s1_cni_v: "Back — ID No. (recommended)",
+s1_cg_r: "Admin side — Plate / Owner (required)", s1_cg_v: "Technical side — Specs (recommended)",
+s1_pm_r: "Front — Holder and validity (required)", s1_pm_v: "Back — Category table (recommended)", s1_pm_note: "The license must be valid. The check verifies it automatically.",
+photo: "PHOTO", drop: "click or drag & drop",
+s1_hint: "Documents flat, sharp, no glare. If a photo is unusable, the field stays empty and editable at the next step.",
+s1_reg: "OPEN DIRECTORY", s1_go: "RUN OCR CHECK",
+s1_prog: "Deskew · Binarize · Dual local OCR engines · 3-document cross-check",
+s1_bg: "Background processing — you can wait on this page.",
+s2_checks: "3-document cross-checks", s2_dossier: "MERGED FILE — Review and complete (green fields = read by OCR)",
+s2_id: "Policyholder / Insured", s2_veh: "Vehicle", s2_drv: "Driver", s2_pol: "Policy, premium (FCFA) and agency follow-up",
+s2_internal: "Internal verification (OCR-read, not printed)", s2_back: "BACK TO PHOTOS", s2_back_reg: "BACK TO DIRECTORY", s2_next: "CONTINUE — SIGNATURE",
+s3_h: "3. Policyholder signature", s3_o1: "Sign here (client present)", s3_o2: "Signature photo sent by the client", s3_o3: "Signature to collect later",
+s3_note1: "Signature captured at the agency, finger or mouse.", s3_drop: "signature on paper — click or drag & drop",
+s3_note2: "The client signs on paper, photographs and sends via WhatsApp. Import that photo.",
+s3_note3: "Issuing without signature: the contract will state “Signature to regularize” until the client comes in.",
+s3_clear: "CLEAR", s3_back: "BACK TO FILE", s3_emit: "ISSUE DOCUMENTS", s3_emit_av: "ISSUE ENDORSEMENT", s3_emit_rn: "ISSUE NEW POLICY",
+s4_pol: "Policy No.:", s4_quit: "Receipt:", s4_prime: "Total premium:", s4_tq: "RECEIPT", s4_tf: "INVOICE",
+s4_dl: "DOWNLOAD SHOWN DOCUMENT", s4_dos: "SINGLE PDF (3 IN 1)", s4_eml: "READY EMAIL (.EML)", s4_wa: "CLIENT WHATSAPP",
+s4_back: "BACK TO FILE", s4_new: "NEW FILE", s4_ok: "Documents issued — File archived in directory", s4_sig: "Client signature to collect",
+reg_h: "Client directory", reg_clients: "client(s)", reg_pols: "policie(s)", reg_hint: "Click a client to see policies, vehicles and documents.",
+reg_search: "Search name, phone, TIN, policy, plate…", reg_back: "BACK TO CURRENT FILE",
+th_client: "Client", th_tel: "Phone", th_n: "Policies", th_veh: "Vehicle(s)", th_last: "Latest policy",
+loading: "Loading…", all: "— all files",
+pi_h: "Production dashboard", pi_sub: "Key figures, backup, imports and log.", pi_refresh: "REFRESH",
+ad_bk: "Backup / Restore", ad_bk_p: "The backup holds the directory, contract PDFs and photos. Keep it off this PC.",
+ad_bk_dl: "DOWNLOAD BACKUP", ad_bk_rs: "Restore:", ad_bk_auto: "DOWNLOAD LATEST AUTO",
+ad_imp: "Client import (CSV)", ad_imp_p: "Columns: police_no, nom, prenoms, telephone, immatriculation, marque, modele, effet, expiration, prime_ttc…",
+ad_audit: "Activity log", th_agent: "Agent", th_det: "Detail",
+cf_h: "Confirm", cf_no: "CANCEL", cf_yes: "CONFIRM",
+footer: "<b>AGC Assurances — Générales du Cameroun</b> · CIMA-compliant RCA issuing · Internal agency use · v5.3.1",
+f_titre: "Title", f_nom: "Last name", f_prenoms: "First names", f_pc: "O/B/O — On behalf of", f_nui: "TIN", f_prof: "Occupation", f_adr: "Address", f_tel: "Phone *", f_email: "Email",
+f_immat: "Plate number", f_marque: "Make", f_modele: "Type / Model", f_genre: "Body type", f_energie: "Fuel", f_places: "Seats", f_pcv: "Power (HP)", f_cyl: "Engine size",
+f_pv: "Empty weight", f_cu: "Payload", f_pt: "Total weight (RC)", f_ptac: "GVW computed (empty + payload)", f_carr: "Bodywork", f_mes: "First registration", f_vin: "Serial / VIN", f_cat: "Tariff class",
+f_cond: "Usual driver", f_effet: "Start (DD/MM/YYYY)", f_dur: "Term", f_exp: "Expiry", f_mvt: "Movement", f_int: "Intermediary", f_code: "Intermediary code",
+f_lieu: "Issue place", f_canal: "Received via", f_net: "Net premium", f_acc: "Add-ons", f_fich: "File fee", f_tva: "VAT", f_rose: "Pink card", f_ttc: "Total premium",
+av_type: "Endorsement type *", av_motif: "Endorsement reason *",
+days: "days", canal_ag: "Agency", canal_ap: "Introducer", 
+}};
+let LANG = localStorage.getItem('agc_lang') || '';
+function t(k) { const d = I18N[LANG] || I18N.fr; return (d && d[k]) || I18N.fr[k] || k; }
+function setLang(l) { LANG = (l === 'en') ? 'en' : 'fr'; localStorage.setItem('agc_lang', LANG); applyLang(); }
+function toggleLang() { setLang(LANG === 'en' ? 'fr' : 'en'); }
+function applyLang() {
+  if (!LANG) LANG = 'fr';
+  document.documentElement.lang = LANG;
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.innerHTML = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
+  document.getElementById('lang-btn').textContent = LANG === 'en' ? 'FR' : 'EN';
+  const back1 = document.getElementById('btn-back-1');
+  if (back1) back1.textContent = FORM_MODE === 'ocr' ? t('s2_back') : t('s2_back_reg');
+  if (!document.getElementById('screen-2').classList.contains('hidden') && LAST_MERGED) buildForms(LAST_MERGED);
+  if (LASTURLS) setDocTab(currentDocTab);
+  if (!document.getElementById('view-registre').classList.contains('hidden')) loadRegistre(document.getElementById('reg-search').value || '');
+  if (!document.getElementById('view-pilotage').classList.contains('hidden')) loadPilotage();
+  updateEmitBtn();
+}
+const files = { cni_recto: null, cni_verso: null, cg_recto: null, cg_verso: null, permis: null, permis_verso: null };
+let ANALYSIS = null;
+let LASTURLS = null;
+let LASTCID = null;
+let LAST_MERGED = null;
+let currentDocTab = 'police';
+const mergedForm = {};
+const DEFAULTS = { intermediaire: 'ESPACE CLIENTS', code_intermediaire: '1031', lieu_emission: 'Douala', reseau: 'BUREAUX DIRECTS', agence_nom: 'AGC Assurances - Generales du Cameroun' };
+let FORM_MODE = 'ocr';
+let SIG_MODE = 'agence';
+let SIG_PHOTO = '';
+const escHtml = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const fmtN = n => (+n || 0).toLocaleString('fr-FR');
+
+// ---------- toasts + modals ----------
+function toast(msg, kind = 'info') {
+  const colors = { info: 'border-blue-600', success: 'border-green-600', warn: 'border-amber-500', error: 'border-red-600' };
+  const el = document.createElement('div');
+  el.className = `toast bg-white shadow-xl rounded-lg border-l-4 ${colors[kind] || colors.info} px-4 py-3 text-sm font-semibold text-slate-700`;
+  el.textContent = msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .4s'; setTimeout(() => el.remove(), 400); }, 4500);
+}
+let modalResolve = null;
+function confirmBox(text) {
+  document.getElementById('modal-text').textContent = text;
+  document.getElementById('modal').classList.remove('hidden');
+  return new Promise(res => modalResolve = res);
+}
+document.getElementById('modal-ok').addEventListener('click', () => { document.getElementById('modal').classList.add('hidden'); modalResolve && modalResolve(true); });
+document.getElementById('modal-cancel').addEventListener('click', () => { document.getElementById('modal').classList.add('hidden'); modalResolve && modalResolve(false); });
+let fmResolve = null;
+function formBox(title, bodyHTML, okLabel) {
+  document.getElementById('fm-title').textContent = title;
+  document.getElementById('fm-body').innerHTML = bodyHTML;
+  document.getElementById('fm-ok').textContent = okLabel || t('cf_yes');
+  document.getElementById('form-modal').classList.remove('hidden');
+  return new Promise(res => fmResolve = res);
+}
+document.getElementById('fm-ok').addEventListener('click', () => { document.getElementById('form-modal').classList.add('hidden'); fmResolve && fmResolve(true); });
+document.getElementById('fm-cancel').addEventListener('click', () => { document.getElementById('form-modal').classList.add('hidden'); fmResolve && fmResolve(false); });
+document.getElementById('home-link').addEventListener('click', e => { e.preventDefault(); showView('dossier'); gotoStep(1); });
+
+// ---------- auth + api ----------
+function withToken(url) {
+  return url;
+}
+async function apiFetch(url, opts = {}) {
+  return fetch(url, opts);
+}
+async function boot() {
+  try {
+    const s = await (await fetch('/api/status')).json();
+    if (!localStorage.getItem('agc_lang') && s.langue) LANG = s.langue === 'en' ? 'en' : 'fr';
+    document.getElementById('ver-chip').textContent = 'v' + (s.version || '?');
+  } catch (e) {}
+  applyLang();
+  gotoStep(1);
+  refreshRegCount();
+  loadExpirations();
+}
+
+// ---------- views ----------
+function showView(v) {
+  ['dossier', 'registre', 'pilotage'].forEach(x => {
+    document.getElementById('view-' + x).classList.toggle('hidden', x !== v);
+    document.getElementById('tab-' + x).classList.toggle('active', x === v);
+  });
+  document.getElementById('stepper').style.display = v === 'dossier' ? '' : 'none';
+  if (v === 'registre') loadRegistre(document.getElementById('reg-search').value || '');
+  if (v === 'pilotage') loadPilotage();
+  window.scrollTo({ top: 0 });
+}
+
+// ---------- upload slots (images only, click + drag & drop) ----------
+function handleSlotFile(key, f, slot, input) {
+  if (!f) return;
+  if (!f.type.startsWith('image/')) { toast(LANG === 'en' ? 'Only photos (JPG/PNG/WebP) are accepted.' : 'Seules les photos (JPG/PNG/WebP) sont acceptées.', 'error'); input.value = ''; return; }
+  files[key] = f;
+  const url = URL.createObjectURL(f);
+  slot.classList.add('filled');
+  slot.querySelectorAll('span').forEach(s => s.style.display = 'none');
+  let img = slot.querySelector('img.preview');
+  if (!img) { img = document.createElement('img'); img.className = 'preview'; slot.appendChild(img); }
+  img.src = url;
+  let b = slot.querySelector('.badge-ok');
+  if (!b) { b = document.createElement('span'); b.className = 'badge-ok text-green-600 text-xl font-black'; b.textContent = '✓'; slot.appendChild(b); }
+  updateAnalyzeBtn();
+}
+document.querySelectorAll('.doc-slot[data-slot]').forEach(slot => {
+  const key = slot.dataset.slot;
+  const input = slot.querySelector('input[type=file]');
+  slot.addEventListener('click', () => input.click());
+  input.addEventListener('change', () => handleSlotFile(key, input.files[0], slot, input));
+  ['dragenter', 'dragover'].forEach(ev => slot.addEventListener(ev, e => { e.preventDefault(); slot.classList.add('dragover'); }));
+  ['dragleave', 'drop'].forEach(ev => slot.addEventListener(ev, e => { e.preventDefault(); slot.classList.remove('dragover'); }));
+  slot.addEventListener('drop', e => handleSlotFile(key, e.dataTransfer.files[0], slot, input));
+});
+function updateAnalyzeBtn() {
+  document.getElementById('btn-analyze').disabled = !(files.cni_recto && files.cg_recto && files.permis);
+}
+
+// ---------- stepper ----------
+function gotoStep(n) {
+  ['dossier', 'registre', 'pilotage'].forEach(x => {
+    document.getElementById('view-' + x).classList.toggle('hidden', x !== 'dossier');
+  });
+  document.getElementById('tab-dossier').classList.add('active');
+  document.getElementById('tab-registre').classList.remove('active');
+  document.getElementById('tab-pilotage').classList.remove('active');
+  document.getElementById('stepper').style.display = '';
+  [1,2,3,4].forEach(i => {
+    document.getElementById('screen-' + i).classList.toggle('hidden', i !== n);
+    const el = document.querySelector(`#stepper [data-step="${i}"]`);
+    el.classList.toggle('step-active', i === n);
+    el.classList.toggle('step-done', i < n);
+  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ---------- analyze (background job + polling) ----------
+const progressMsgs = { fr: ['Envoi des photos…', 'Nettoyage des images…', 'Lecture OCR locale…', 'Extraction des champs…', 'Recoupement des 3 documents…'],
+  en: ['Uploading photos…', 'Cleaning images…', 'Local OCR reading…', 'Extracting fields…', 'Cross-checking the 3 documents…'] };
+let progressTimer = null;
+document.getElementById('btn-analyze').addEventListener('click', async () => {
+  const box = document.getElementById('progress-box');
+  box.classList.remove('hidden');
+  box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  document.getElementById('btn-analyze').disabled = true;
+  let mi = 0;
+  const msgs = progressMsgs[LANG] || progressMsgs.fr;
+  document.getElementById('progress-title').textContent = msgs[0];
+  progressTimer = setInterval(() => { mi = (mi + 1) % msgs.length; document.getElementById('progress-title').textContent = msgs[mi]; }, 5000);
+  try {
+    const fd = new FormData();
+    fd.append('cni_recto', files.cni_recto);
+    fd.append('cg_recto', files.cg_recto);
+    fd.append('permis', files.permis);
+    if (files.cni_verso) fd.append('cni_verso', files.cni_verso);
+    if (files.cg_verso) fd.append('cg_verso', files.cg_verso);
+    if (files.permis_verso) fd.append('permis_verso', files.permis_verso);
+    const resp = await apiFetch('/api/analyze', { method: 'POST', body: fd });
+    if (!resp.ok) { let d = 'Erreur ' + resp.status; try { d = (await resp.json()).detail || d; } catch (e) {} throw new Error(d); }
+    const q = await resp.json();
+    if (q.status !== 'queued' || !q.job_id) throw new Error('Unexpected server reply.');
+    ANALYSIS = await pollJob(q.job_id);
+    FORM_MODE = 'ocr';
+    renderResults();
+    gotoStep(2);
+    toast(LANG === 'en' ? 'OCR check done — review the merged file.' : 'Contrôle OCR terminé — vérifiez le dossier fusionné.', 'success');
+  } catch (e) {
+    toast((LANG === 'en' ? 'OCR check failed: ' : 'Échec du contrôle OCR : ') + e.message, 'error');
+  } finally {
+    clearInterval(progressTimer);
+    box.classList.add('hidden');
+    document.getElementById('btn-analyze').disabled = false;
+  }
+});
+async function pollJob(job_id) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < 300000) {
+    const r = await apiFetch('/api/job/' + encodeURIComponent(job_id));
+    if (!r.ok) throw new Error('Job tracking failed (HTTP ' + r.status + ').');
+    const j = await r.json();
+    if (j.status === 'done') return j;
+    if (j.status === 'error') throw new Error(j.error || 'OCR failed.');
+    await new Promise(res => setTimeout(res, 2000));
+  }
+  throw new Error('Timeout (5 min).');
+}
+
+// ---------- render results ----------
+function docMeta() {
+  const L = LANG === 'en' ? {
+    cni: 'ID CARD', cg: 'VEHICLE REGISTRATION', pm: 'LICENSE',
+    nom: 'Last name', prenoms: 'First names', date_naissance: 'Birth', sexe: 'Sex', numero_piece: 'ID No.', lieu_naissance: 'Birth place', profession: 'Occupation', date_delivrance: 'Issued', date_expiration: 'Expires', numero_carte: 'Card No.',
+    immatriculation: 'Plate', numero_serie: 'Serial / VIN', titulaire: 'Owner', validite_du: 'Valid from', validite_au: 'Valid to', marque: 'Make', modele: 'Model', genre: 'Body', puissance: 'Power', cylindree: 'Engine', energie: 'Fuel', places: 'Seats', mise_circulation: '1st reg.', poids_total: 'Total wt', poids_vide: 'Empty wt', charge_utile: 'Payload', carrosserie: 'Bodywork', centre_ssdt: 'SSDT center', delivre_le: 'Issued', delivre_a: 'At', serial: 'Serial', ssdt_id: 'SSDT ID', gage: 'Pledged', adresse_titulaire: 'Owner address', prec_immat: 'Prev. plate',
+    numero_permis: 'License No.', categorie: 'Cat.', expire_le: 'Expires (4b)', autorite: 'Authority (4c)', reference: 'Ref. (4d)', ren: 'Back REN', verso_validite: 'Back validity'
+  } : {
+    cni: 'CNI', cg: 'CARTE GRISE', pm: 'PERMIS',
+    nom: 'Nom', prenoms: 'Prénoms', date_naissance: 'Naissance', sexe: 'Sexe', numero_piece: 'N° CNI', lieu_naissance: 'Lieu naiss.', profession: 'Profession', date_delivrance: 'Délivrée', date_expiration: 'Expire', numero_carte: 'N° carte',
+    immatriculation: 'Immatriculation', numero_serie: 'N° Série / VIN', titulaire: 'Titulaire', validite_du: 'CG valide du', validite_au: 'CG valide au', marque: 'Marque', modele: 'Modèle', genre: 'Genre', puissance: 'Puissance', cylindree: 'Cylindrée', energie: 'Énergie', places: 'Places', mise_circulation: '1re circul.', poids_total: 'Poids total', poids_vide: 'Poids vide', charge_utile: 'Charge utile', carrosserie: 'Carrosserie', centre_ssdt: 'Centre SSDT', delivre_le: 'Délivrée', delivre_a: 'À', serial: 'Série CG', ssdt_id: 'SSDT ID', gage: 'Véhicule gagé', adresse_titulaire: 'Adresse titulaire', prec_immat: 'Immat. préc.',
+    numero_permis: 'N° Permis', categorie: 'Cat.', expire_le: 'Expire (4b)', autorite: 'Autorité (4c)', reference: 'Réf. (4d)', ren: 'REN (verso)', verso_validite: 'Validité verso'
+  };
+  return {
+    cni: { title: L.cni, fields: [['nom', L.nom],['prenoms', L.prenoms],['date_naissance', L.date_naissance],['sexe', L.sexe],['numero_piece', L.numero_piece],['lieu_naissance', L.lieu_naissance],['profession', L.profession],['date_delivrance', L.date_delivrance],['date_expiration', L.date_expiration],['numero_carte', L.numero_carte]] },
+    carte_grise: { title: L.cg, fields: [['immatriculation', L.immatriculation],['numero_serie', L.numero_serie],['titulaire', L.titulaire],['validite_du', L.validite_du],['validite_au', L.validite_au],['marque', L.marque],['modele', L.modele],['genre', L.genre],['puissance', L.puissance],['cylindree', L.cylindree],['energie', L.energie],['places', L.places],['mise_circulation', L.mise_circulation],['poids_total', L.poids_total],['poids_vide', L.poids_vide],['charge_utile', L.charge_utile],['carrosserie', L.carrosserie],['centre_ssdt', L.centre_ssdt],['delivre_le', L.delivre_le],['delivre_a', L.delivre_a],['serial', L.serial],['ssdt_id', L.ssdt_id],['gage', L.gage],['adresse_titulaire', L.adresse_titulaire],['prec_immat', L.prec_immat]] },
+    permis: { title: L.pm, fields: [['nom', L.nom],['prenoms', L.prenoms],['date_naissance', L.date_naissance],['lieu_naissance', L.lieu_naissance],['numero_permis', L.numero_permis],['categorie', L.categorie],['delivre_le', L.delivre_le],['expire_le', L.expire_le],['autorite', L.autorite],['reference', L.reference],['serial', L.serial],['ren', L.ren],['verso_validite', L.verso_validite]] }
+  };
+}
+function renderResults() {
+  const { documents, checks, score, merged, merged_sources } = ANALYSIS;
+  document.getElementById('mode-banner').classList.add('hidden');
+  document.getElementById('score-banner').classList.remove('hidden');
+  document.getElementById('checks-card').classList.remove('hidden');
+  document.getElementById('doc-panels').classList.remove('hidden');
+  document.getElementById('btn-back-1').textContent = t('s2_back');
+  const banner = document.getElementById('score-banner');
+  const col = score >= 80 ? 'linear-gradient(135deg,#011689,#1E40AF)' : score >= 55 ? 'linear-gradient(135deg,#B45309,#F59E0B)' : 'linear-gradient(135deg,#991B1B,#F4313F)';
+  banner.style.background = col;
+  const msg = score >= 80 ? (LANG === 'en' ? 'Consistent file — ready to issue.' : 'Dossier cohérent — émission possible.')
+    : score >= 55 ? (LANG === 'en' ? 'Acceptable file — check the orange items.' : 'Dossier acceptable — contrôler les points orange.')
+    : (LANG === 'en' ? 'Risky file — check the documents before issuing.' : 'Dossier à risque — contrôler les documents avant émission.');
+  const srcName = (merged_sources && merged_sources.nom === 'cni') ? (LANG === 'en' ? 'ID card' : 'CNI') : (LANG === 'en' ? 'Driving licence' : 'Permis de conduire');
+  banner.innerHTML = `<div class="flex items-center gap-4"><div class="text-5xl font-black">${score}<span class="text-lg">/100</span></div>
+    <div><h2 class="font-extrabold text-lg">${LANG === 'en' ? 'Triple-document consistency score' : 'Score de cohérence triple-document'}</h2>
+    <p class="text-sm opacity-90">${msg}</p>
+    <p class="text-xs opacity-80 mt-1">${LANG === 'en' ? 'Name taken from' : 'Nom repris du'} : <b>${srcName}</b></p></div></div>`;
+  const icons = { ok: '✓', warn: '!', fail: '✕', na: '○' };
+  const iconBg = { ok: 'bg-green-600', warn: 'bg-amber-500', fail: 'bg-red-600', na: 'bg-slate-400' };
+  document.getElementById('checks-list').innerHTML = checks.map(c =>
+    `<div class="check-${c.status} border-l-4 bg-slate-50 rounded-r-lg px-3 py-2 flex gap-2 items-center">
+       <span class="${iconBg[c.status]} text-white rounded-full font-black text-xs flex items-center justify-center" style="width:22px;height:22px;flex-shrink:0">${icons[c.status]}</span>
+       <div><b class="text-sm">${escHtml(c.label)}</b><div class="text-xs text-slate-500">${escHtml(c.detail || '')}</div></div></div>`).join('');
+  const META = docMeta();
+  const cleanLbl = LANG === 'en' ? 'See cleaned (binarized) image' : "Voir l'image nettoyée (binarisée)";
+  document.getElementById('doc-panels').innerHTML = Object.entries(META).map(([key, meta]) => {
+    const doc = documents[key];
+    if (key === 'permis' && doc.data.categories_verso && doc.data.categories_verso.length)
+      doc.data.verso_validite = doc.data.categories_verso.map(p => `${p.du} → ${p.au}`).join(' · ') + (doc.data.verso_match_expire ? ' ✓' : '');
+    const rows = meta.fields.filter(([f]) => doc.data[f]).map(([f, l]) =>
+      `<div class="flex justify-between gap-2 py-0.5 border-b border-slate-100"><span class="text-slate-500">${escHtml(l)}</span><b class="text-right">${escHtml(doc.data[f])}</b></div>`).join('') || `<p class="text-xs text-slate-400">${LANG === 'en' ? 'No field read.' : 'Aucun champ lu.'}</p>`;
+    return `<details class="doc-panel bg-white rounded-xl shadow overflow-hidden" ${key === 'cni' ? 'open' : ''}>
+      <summary class="agc-navy text-white px-3 py-2 font-bold text-sm flex justify-between"><span>${escHtml(meta.title)}</span><span class="text-[10px] opacity-80">${(doc.engines || []).join(' + ') || 'OCR'}</span></summary>
+      <div class="p-3">
+        <img src="${doc.preview}" class="w-full rounded-lg border mb-2" style="max-height:170px;object-fit:cover" alt="">
+        <div class="text-xs space-y-0.5 mb-2">${rows}</div>
+        <button class="text-[11px] text-blue-700 underline" onclick="this.nextElementSibling.classList.toggle('hidden')">${cleanLbl}</button>
+        <img src="${doc.clean}" class="hidden w-full rounded-lg border mt-1" alt="">
+      </div></details>`;
+  }).join('');
+  buildForms(merged);
+}
+function buildForms(merged) {
+  const fresh = LAST_MERGED !== merged;
+  const keepEdits = fresh ? {} : Object.assign({}, mergedForm);
+  LAST_MERGED = merged;
+  Object.assign(mergedForm, merged, keepEdits);
+  const fill = (k, v) => { if (mergedForm[k] === '' || mergedForm[k] == null) mergedForm[k] = v; };
+  fill('adresse', 'BP YDE'); fill('telephone', ''); fill('email', '');
+  fill('canal', 'Agence');
+  fill('souscripteur_pc', ''); fill('nui', '');
+  fill('intermediaire', DEFAULTS.intermediaire);
+  fill('code_intermediaire', DEFAULTS.code_intermediaire);
+  fill('lieu_emission', DEFAULTS.lieu_emission);
+  fill('branche', '001');
+  mergedForm.reseau = DEFAULTS.reseau;
+  mergedForm.agence_nom = DEFAULTS.agence_nom;
+  if (fresh) {
+    mergedForm.paiement = 'Payé';
+    mergedForm.ptac = '';
+    mergedForm.dta = 0;
+    if (FORM_MODE !== 'avenant') { mergedForm.avenant_of = ''; mergedForm.avenant_type = ''; mergedForm.avenant_motif = ''; }
+    if (FORM_MODE !== 'renouveler') mergedForm.police_prec = merged.police_prec || '';
+  }
+  const mk = (arr) => arr.map(([k, lk, type]) => {
+    const l = t(lk);
+    const v = mergedForm[k] ?? '';
+    const auto = v !== '' && v !== null ? 'auto' : '';
+    if (type === 'select-titre') return `<div><label class="flabel">${l}</label><select data-f="${k}" class="field-input ${auto}"><option ${v === 'MONSIEUR' ? 'selected' : ''}>MONSIEUR</option><option ${v === 'MADAME' ? 'selected' : ''}>MADAME</option></select></div>`;
+    if (type === 'select-duree') { const opts = [15,30,60,90,180,270,365].map(j => `<option value="${j}" ${+v === j ? 'selected' : ''}>${j} ${t('days')}</option>`).join(''); return `<div><label class="flabel">${l}</label><select data-f="${k}" class="field-input">${opts}</select></div>`; }
+    if (type === 'select-canal') { const cv = [['Agence', t('canal_ag')], ['WhatsApp', 'WhatsApp'], ['Email', 'Email'], ['Apporteur', t('canal_ap')]].map(([val, lbl]) => `<option value="${val}" ${v === val ? 'selected' : ''}>${lbl}</option>`).join(''); return `<div><label class="flabel">${l}</label><select data-f="${k}" class="field-input">${cv}</select></div>`; }
+    if (k === 'telephone') return `<div><label class="flabel">${l}</label><input data-f="${k}" value="${escHtml(v)}" class="field-input ${auto}" placeholder="+237 6 XX XX XX XX"><div id="phone-hint" class="text-[11px] mt-1 text-slate-400"></div></div>`;
+    if (k === 'ptac') return `<div><label class="flabel">${l}</label><input data-f="${k}" value="" class="field-input" readonly title="auto"></div>`;
+    return `<div><label class="flabel">${l}</label><input data-f="${k}" value="${escHtml(v)}" class="field-input ${auto}" ${type === 'number' ? 'type="number"' : ''}></div>`;
+  }).join('');
+  document.getElementById('form-identity').innerHTML = mk([['titre','f_titre','select-titre'],['nom','f_nom'],['prenoms','f_prenoms'],['souscripteur_pc','f_pc'],['nui','f_nui'],['profession','f_prof'],['adresse','f_adr'],['telephone','f_tel'],['email','f_email']]);
+  document.getElementById('form-vehicle').innerHTML = mk([['immatriculation','f_immat'],['marque','f_marque'],['modele','f_modele'],['genre','f_genre'],['energie','f_energie'],['places','f_places'],['puissance_cv','f_pcv','number'],['cylindree','f_cyl'],['poids_vide','f_pv'],['charge_utile','f_cu'],['poids_total','f_pt'],['ptac','f_ptac'],['carrosserie','f_carr'],['mise_circulation','f_mes'],['numero_serie','f_vin'],['categorie','f_cat']]);
+  document.getElementById('form-license').innerHTML = mk([['conducteur','f_cond']]);
+  document.getElementById('form-policy').innerHTML = mk([['effet','f_effet'],['duree_jours','f_dur','select-duree'],['expiration','f_exp'],['mouvement','f_mvt'],['intermediaire','f_int'],['code_intermediaire','f_code'],['lieu_emission','f_lieu'],['canal','f_canal','select-canal'],['prime_nette','f_net','number'],['accessoires','f_acc','number'],['frais_fichier','f_fich','number'],['tva','f_tva','number'],['carte_rose','f_rose','number'],['prime_ttc','f_ttc','number']]);
+  const af = document.getElementById('avenant-fields');
+  if (FORM_MODE === 'avenant') {
+    af.classList.remove('hidden');
+    const at = mergedForm.avenant_type || '';
+    af.innerHTML = `<div><label class="flabel">${t('av_type')}</label><select data-f="avenant_type" class="field-input">
+      <option value="">—</option>
+      ${['Correction', 'Vehicule', 'Conducteur', 'Prorogation', 'Autre'].map(o => `<option ${at === o ? 'selected' : ''}>${o}</option>`).join('')}</select></div>
+      <div><label class="flabel">${t('av_motif')}</label><input data-f="avenant_motif" value="${escHtml(mergedForm.avenant_motif || '')}" class="field-input"></div>`;
+  } else { af.classList.add('hidden'); af.innerHTML = ''; }
+  const il = [];
+  if (mergedForm.numero_cni) il.push(`CNI <b>${escHtml(mergedForm.numero_cni)}</b>`);
+  if (mergedForm.date_naissance) il.push(`${LANG === 'en' ? 'Born' : 'Naissance'} <b>${escHtml(mergedForm.date_naissance)}</b>`);
+  if (mergedForm.lieu_naissance) il.push(`${LANG === 'en' ? 'at' : 'à'} <b>${escHtml(mergedForm.lieu_naissance)}</b>`);
+  if (mergedForm.numero_permis) il.push(`${LANG === 'en' ? 'License' : 'Permis'} <b>${escHtml(mergedForm.numero_permis)}</b> (${escHtml(mergedForm.permis_delivre || '')} → ${escHtml(mergedForm.permis_expire || '')})`);
+  document.getElementById('internal-line').innerHTML = il.join(' · ') || '—';
+  phoneHint(mergedForm.telephone || '');
+  autoExpiration();
+  computePtac();
+  updateGenreHint();
+  renderPrimeBox();
+}
+document.querySelectorAll('#form-identity, #form-vehicle, #form-license, #form-policy, #avenant-fields').forEach(zone => {
+  zone.addEventListener('input', e => {
+    const el = e.target;
+    if (!el.dataset || !el.dataset.f) return;
+    mergedForm[el.dataset.f] = el.value; el.classList.remove('auto');
+    if (['genre','puissance_cv','duree_jours'].includes(el.dataset.f)) autoPrime();
+    if (el.dataset.f === 'genre') updateGenreHint();
+    if (['prime_nette','accessoires','frais_fichier','tva','carte_rose'].includes(el.dataset.f)) recomputeTTC();
+    if (['effet','duree_jours'].includes(el.dataset.f)) autoExpiration();
+    if (el.dataset.f === 'telephone') phoneHint(el.value);
+    if (['poids_vide','charge_utile','poids_total'].includes(el.dataset.f)) computePtac();
+  });
+});
+async function loadDraft(police_no, mode) {
+  try {
+    const r = await apiFetch('/api/dossier/' + encodeURIComponent(police_no) + '/draft?mode=' + mode);
+    if (!r.ok) { let d = 'Erreur ' + r.status; try { d = (await r.json()).detail || d; } catch (e) {} throw new Error(d); }
+    const j = await r.json();
+    FORM_MODE = mode;
+    const mb = document.getElementById('mode-banner');
+    mb.classList.remove('hidden');
+    mb.innerHTML = mode === 'avenant'
+      ? (LANG === 'en' ? `<h2 class="font-extrabold text-lg">Endorsement No. ${escHtml(j.draft.avenant_no)} — Policy ${escHtml(police_no)}</h2><p class="text-sm opacity-90">Edit the fields, fill in the reason, then issue. Documents are rebuilt with the endorsement number.</p>`
+        : `<h2 class="font-extrabold text-lg">Avenant N° ${escHtml(j.draft.avenant_no)} — Police ${escHtml(police_no)}</h2><p class="text-sm opacity-90">Modifiez les champs concernés, renseignez le motif, puis émettez. Les documents seront régénérés avec le numéro d'avenant.</p>`)
+      : (LANG === 'en' ? `<h2 class="font-extrabold text-lg">Renewal — Previous policy ${escHtml(police_no)}</h2><p class="text-sm opacity-90">File pre-filled from the old contract. Review, adjust the premium if needed, then issue the new policy.</p>`
+        : `<h2 class="font-extrabold text-lg">Renouvellement — Police précédente ${escHtml(police_no)}</h2><p class="text-sm opacity-90">Dossier pré-rempli à partir de l'ancien contrat. Contrôlez, ajustez la prime si besoin, puis émettez la nouvelle police.</p>`);
+    document.getElementById('score-banner').classList.add('hidden');
+    document.getElementById('checks-card').classList.add('hidden');
+    document.getElementById('doc-panels').classList.add('hidden');
+    document.getElementById('doc-panels').innerHTML = '';
+    document.getElementById('btn-back-1').textContent = t('s2_back_reg');
+    buildForms(j.draft);
+    gotoStep(2);
+  } catch (e) { toast((LANG === 'en' ? 'Draft failed: ' : 'Brouillon impossible : ') + e.message, 'error'); }
+}
+function kgNum(v) {
+  const m = String(v || '').replace(/,/g, ' ').match(/(\d[\d\s]*)/);
+  return m ? parseInt(m[1].replace(/\s/g, ''), 10) : null;
+}
+function ptacMismatch() {
+  const v = kgNum(mergedForm.poids_vide), u = kgNum(mergedForm.charge_utile), t = kgNum(mergedForm.poids_total);
+  return v != null && u != null && t != null && Math.abs(t - (v + u)) > 50;
+}
+function computePtac() {
+  const v = kgNum(mergedForm.poids_vide), u = kgNum(mergedForm.charge_utile), t = kgNum(mergedForm.poids_total);
+  const line = document.getElementById('ptac-line');
+  const el = document.querySelector('[data-f="ptac"]');
+  const EN = LANG === 'en';
+  if (v != null && u != null) {
+    const p = v + u;
+    mergedForm.ptac = p.toLocaleString('fr-FR') + ' KG';
+    if (el) { el.value = mergedForm.ptac; el.classList.add('auto'); }
+    if (t != null && Math.abs(t - p) > 50) {
+      line.innerHTML = EN ? `Computed GVW: <b>${mergedForm.ptac}</b> — <span class="text-red-600 font-bold">differs from RC total (${escHtml(mergedForm.poids_total)}): fix the weights, issuing is blocked.</span>`
+        : `PTAC calculé : <b>${mergedForm.ptac}</b> — <span class="text-red-600 font-bold">écart avec le total CG (${escHtml(mergedForm.poids_total)}) : corrigez les poids, l'émission est bloquée.</span>`;
+    } else {
+      line.innerHTML = EN ? `Computed GVW: <b>${mergedForm.ptac}</b> <span class="text-green-600 font-bold">— consistent (empty + payload).</span>`
+        : `PTAC calculé : <b>${mergedForm.ptac}</b> <span class="text-green-600 font-bold">— cohérent (vide + charge utile).</span>`;
+    }
+  } else {
+    mergedForm.ptac = '';
+    if (el) { el.value = ''; el.classList.remove('auto'); }
+    line.innerHTML = EN ? 'GVW = Empty weight + Payload (fill both weights).' : 'PTAC = Poids à vide + Charge utile (renseignez les deux poids).';
+  }
+}
+const GENRE_MAP = [['SEMI-REMORQUE','SREM'],['SEMI REMORQUE','SREM'],['TRACTEUR ROUTIER','TRR'],['TRACTEUR','TRR'],['TRANSPORT EN COMMUN','TC'],['TRANSPORT COMMUN','TC'],['VOITURE DE TOURISME','VP'],['VOITURE PARTICULIERE','VP'],['TOURISME','VP'],['PARTICULIER','VP'],['CAMIONNETTE','VU'],['UTILITAIRE','VU'],['MOTOCYCLETTE','MOTO'],['MOTOCYCLE','MOTO'],['MOTO','MOTO'],['CYCLOMOTEUR','CYCL'],['VELOMOTEUR','CYCL'],['AUTOCAR','CAR'],['AUTOBUS','CAR'],['AMBULANCE','AMB'],['AMBULANT','AMB'],['REMORQUE','REM'],['CAMION','CAM'],['ENGIN','ENG'],['TAXI','TAXI']];
+function genreCodeJS(raw) {
+  const g = String(raw || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().trim();
+  if (!g) return '';
+  if (GENRE_MAP.some(([, c]) => c === g)) return g;
+  for (const [w, c] of GENRE_MAP) { if (g.includes(w)) return c; }
+  return g;
+}
+function updateGenreHint() {
+  const el = document.getElementById('genre-line');
+  if (!el) return;
+  const code = genreCodeJS(mergedForm.genre);
+  el.innerHTML = code ? (LANG === 'en' ? `Standardized body type on contract: <b>${escHtml(code)}</b>` : `Genre normalisé sur le contrat : <b>${escHtml(code)}</b>`)
+    : (LANG === 'en' ? 'Vehicle body type (e.g. VOITURE DE TOURISME → VP).' : 'Genre du véhicule (ex. VOITURE DE TOURISME → VP).');
+}
+function cmPhoneCheck(raw) {
+  let d = (raw || '').replace(/\D/g, '');
+  if (d.startsWith('237') && d.length > 9) d = d.slice(3);
+  d = d.replace(/^0+/, '');
+  if (!/^6\d{8}$/.test(d)) return { ok: false, msg: LANG === 'en' ? 'Unexpected format: 9 digits starting with 6.' : 'Format inattendu : 9 chiffres commençant par 6.' };
+  const p2 = d.slice(0, 2), p3 = +d.slice(0, 3);
+  let op = '';
+  if (p2 === '67' || (p3 >= 650 && p3 <= 654) || (p3 >= 680 && p3 <= 683)) op = 'MTN';
+  else if (p2 === '69' || (p3 >= 655 && p3 <= 659)) op = 'Orange';
+  else if (p2 === '66') op = 'Nexttel';
+  else if (d.slice(0, 3) === '620') op = 'Camtel';
+  return { ok: true, op, msg: op ? (LANG === 'en' ? `Valid format — ${op}.` : `Format valide — ${op}.`) : (LANG === 'en' ? 'Plausible format — unknown operator.' : 'Format plausible — opérateur inconnu.') };
+}
+function phoneHint(v) {
+  const el = document.getElementById('phone-hint');
+  if (!el) return;
+  if (!v) { el.textContent = LANG === 'en' ? '9 digits starting with 6 (e.g. 690 12 34 56).' : '9 chiffres commençant par 6 (ex. 690 12 34 56).'; el.className = 'text-[11px] mt-1 text-slate-400'; return; }
+  const r = cmPhoneCheck(v);
+  el.textContent = r.msg;
+  el.className = 'text-[11px] mt-1 font-bold ' + (r.ok && r.op ? 'text-green-600' : 'text-amber-600');
+}
+function autoExpiration() {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(mergedForm.effet || '');
+  if (!m) return;
+  const dt = new Date(+m[3], +m[2] - 1, +m[1]);
+  dt.setDate(dt.getDate() + (+mergedForm.duree_jours || 365));
+  mergedForm.expiration = `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}/${dt.getFullYear()}`;
+  const el = document.querySelector('[data-f="expiration"]');
+  if (el) el.value = mergedForm.expiration;
+}
+async function autoPrime() {
+  try {
+    const r = await apiFetch('/api/prime', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ genre: mergedForm.genre || '', puissance_cv: +mergedForm.puissance_cv || 7, jours: +mergedForm.duree_jours || 365 }) });
+    const p = await r.json();
+    Object.assign(mergedForm, { prime_annuelle: p.prime_annuelle, prime_nette: p.prime_nette, accessoires: p.accessoires, frais_fichier: p.frais_fichier, tva: p.tva, carte_rose: p.carte_rose, dta: p.dta || 0, prime_ttc: p.prime_ttc });
+    ['prime_nette','accessoires','frais_fichier','tva','carte_rose','prime_ttc'].forEach(k => { const el = document.querySelector(`[data-f="${k}"]`); if (el) el.value = mergedForm[k]; });
+    renderPrimeBox();
+  } catch (e) { /* keep manual values */ }
+}
+function recomputeTTC() {
+  const n = k => +mergedForm[k] || 0;
+  mergedForm.prime_ttc = n('prime_nette') + n('accessoires') + n('frais_fichier') + n('tva') + n('carte_rose') + n('dta');
+  const el = document.querySelector('[data-f="prime_ttc"]');
+  if (el) el.value = mergedForm.prime_ttc;
+  renderPrimeBox();
+}
+function renderPrimeBox() {
+  const f = n => (+n || 0).toLocaleString('fr-FR') + ' FCFA';
+  const box = document.getElementById('prime-box');
+  box.style.background = '#EFF6FF';
+  box.style.border = '2px solid #011689';
+  const EN = LANG === 'en';
+  box.innerHTML = EN
+    ? `Net ${f(mergedForm.prime_nette)} + Add-ons ${f(mergedForm.accessoires)} + File ${f(mergedForm.frais_fichier)} + VAT ${f(mergedForm.tva)} + Pink ${f(mergedForm.carte_rose)} = <span class="agc-red-text text-lg">TOTAL ${f(mergedForm.prime_ttc)}</span>`
+    : `Nette ${f(mergedForm.prime_nette)} + Access. ${f(mergedForm.accessoires)} + Fichier ${f(mergedForm.frais_fichier)} + TVA ${f(mergedForm.tva)} + Rose ${f(mergedForm.carte_rose)} = <span class="agc-red-text text-lg">TTC ${f(mergedForm.prime_ttc)}</span>`;
+}
+document.getElementById('btn-back-1').addEventListener('click', () => {
+  if (FORM_MODE === 'ocr') gotoStep(1);
+  else showView('registre');
+});
+function updateEmitBtn() {
+  const b = document.getElementById('btn-generate');
+  if (!b) return;
+  b.textContent = FORM_MODE === 'avenant' ? t('s3_emit_av') : FORM_MODE === 'renouveler' ? t('s3_emit_rn') : t('s3_emit');
+}
+document.getElementById('btn-to-sign').addEventListener('click', () => {
+  const EN = LANG === 'en';
+  if (!mergedForm.nom || !mergedForm.telephone || mergedForm.telephone.length < 6) { toast(EN ? 'Last name and Phone (min. 6 digits) required.' : 'Nom et Téléphone (min. 6 chiffres) obligatoires.', 'warn'); return; }
+  if (ptacMismatch()) { toast(EN ? 'Inconsistent weights: fix them before continuing.' : 'PTAC incohérent : corrigez les poids avant de continuer.', 'error'); return; }
+  if (FORM_MODE === 'avenant' && (!mergedForm.avenant_type || !mergedForm.avenant_motif)) { toast(EN ? 'Endorsement type and reason required.' : "Type et motif de l'avenant obligatoires.", 'warn'); return; }
+  const ph = cmPhoneCheck(mergedForm.telephone);
+  if (!ph.ok) toast((EN ? 'Phone: ' : 'Téléphone : ') + ph.msg, 'warn');
+  const tag = FORM_MODE === 'avenant' ? `<span class="badge bg-blue-600 text-white">${EN ? 'ENDORSEMENT' : 'AVENANT'} ${escHtml(mergedForm.avenant_no || '')}</span> ` : FORM_MODE === 'renouveler' ? `<span class="badge bg-green-600 text-white">${EN ? 'RENEWAL' : 'RENOUVELLEMENT'}</span> ` : '';
+  document.getElementById('sign-recap').innerHTML = `${tag}<b>${escHtml(mergedForm.prenoms)} ${escHtml(mergedForm.nom)}</b> · ${escHtml(mergedForm.marque)} ${escHtml(mergedForm.modele)} ${escHtml(mergedForm.immatriculation)} · ${EN ? 'Total' : 'Prime TTC'} <b>${fmtN(mergedForm.prime_ttc)} FCFA</b>`;
+  updateEmitBtn();
+  gotoStep(3);
+  sizeCanvas();
+});
+
+// ---------- signature (3 modes) ----------
+const canvas = document.getElementById('signature-canvas');
+const ctx = canvas.getContext('2d');
+let drawing = false, hasInk = false;
+function sizeCanvas() {
+  const r = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = r.width * dpr; canvas.height = 220 * dpr;
+  ctx.scale(dpr, dpr); ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.strokeStyle = '#011689';
+}
+function pos(e) { const r = canvas.getBoundingClientRect(); const t = e.touches ? e.touches[0] : e; return [t.clientX - r.left, t.clientY - r.top]; }
+canvas.addEventListener('mousedown', e => { drawing = true; const [x, y] = pos(e); ctx.beginPath(); ctx.moveTo(x, y); });
+canvas.addEventListener('mousemove', e => { if (!drawing) return; const [x, y] = pos(e); ctx.lineTo(x, y); ctx.stroke(); hasInk = true; });
+window.addEventListener('mouseup', () => drawing = false);
+canvas.addEventListener('touchstart', e => { e.preventDefault(); drawing = true; const [x, y] = pos(e); ctx.beginPath(); ctx.moveTo(x, y); }, { passive: false });
+canvas.addEventListener('touchmove', e => { e.preventDefault(); if (!drawing) return; const [x, y] = pos(e); ctx.lineTo(x, y); ctx.stroke(); hasInk = true; }, { passive: false });
+canvas.addEventListener('touchend', () => drawing = false);
+document.getElementById('btn-clear-sign').addEventListener('click', () => {
+  ctx.clearRect(0, 0, canvas.width, canvas.height); hasInk = false;
+  SIG_PHOTO = '';
+  const slot = document.getElementById('sig-photo-slot');
+  slot.classList.remove('filled');
+  const img = slot.querySelector('img.preview');
+  if (img) img.remove();
+  slot.querySelectorAll('span').forEach(s => s.style.display = '');
+  document.getElementById('sig-photo-input').value = '';
+});
+document.getElementById('btn-back-2').addEventListener('click', () => gotoStep(2));
+document.querySelectorAll('.sig-opt').forEach(b => b.addEventListener('click', () => {
+  SIG_MODE = b.dataset.sig;
+  document.querySelectorAll('.sig-opt').forEach(x => x.classList.toggle('sel', x === b));
+  document.getElementById('sig-agence-box').classList.toggle('hidden', SIG_MODE !== 'agence');
+  document.getElementById('sig-photo-box').classList.toggle('hidden', SIG_MODE !== 'photo');
+  document.getElementById('sig-differee-box').classList.toggle('hidden', SIG_MODE !== 'differee');
+  if (SIG_MODE === 'agence') setTimeout(sizeCanvas, 50);
+}));
+function sigPhotoFile(f) {
+  if (!f) return;
+  if (!f.type.startsWith('image/')) { toast(LANG === 'en' ? 'Only images accepted.' : 'Seules les images sont acceptées.', 'error'); return; }
+  const rd = new FileReader();
+  rd.onload = () => {
+    SIG_PHOTO = rd.result;
+    const slot = document.getElementById('sig-photo-slot');
+    slot.classList.add('filled');
+    slot.querySelectorAll('span').forEach(s => s.style.display = 'none');
+    let img = slot.querySelector('img.preview');
+    if (!img) { img = document.createElement('img'); img.className = 'preview'; slot.appendChild(img); }
+    img.src = SIG_PHOTO;
+  };
+  rd.readAsDataURL(f);
+}
+document.getElementById('sig-photo-input').addEventListener('change', e => sigPhotoFile(e.target.files[0]));
+['dragenter', 'dragover'].forEach(ev => document.getElementById('sig-photo-slot').addEventListener(ev, e => { e.preventDefault(); e.currentTarget.classList.add('dragover'); }));
+['dragleave', 'drop'].forEach(ev => document.getElementById('sig-photo-slot').addEventListener(ev, e => { e.preventDefault(); e.currentTarget.classList.remove('dragover'); }));
+document.getElementById('sig-photo-slot').addEventListener('drop', e => sigPhotoFile(e.dataTransfer.files[0]));
+
+// ---------- generate ----------
+document.getElementById('btn-generate').addEventListener('click', async () => {
+  const EN = LANG === 'en';
+  if (SIG_MODE === 'agence' && !hasInk) { toast(EN ? 'Have the policyholder sign in the box, or choose another option.' : 'Faites signer le souscripteur, ou choisissez une autre option.', 'warn'); return; }
+  if (SIG_MODE === 'photo' && !SIG_PHOTO) { toast(EN ? 'Import the signature photo first.' : 'Importez la photo de signature.', 'warn'); return; }
+  if (ptacMismatch()) { toast(EN ? 'Inconsistent weights: fix before issuing.' : 'PTAC incohérent : corrigez les poids avant émission.', 'error'); return; }
+  const btn = document.getElementById('btn-generate');
+  btn.disabled = true; btn.textContent = EN ? 'ISSUING…' : 'ÉMISSION EN COURS…';
+  try {
+    mergedForm.signature_src = SIG_MODE;
+    mergedForm.signature_data = SIG_MODE === 'agence' ? canvas.toDataURL('image/png') : SIG_MODE === 'photo' ? SIG_PHOTO : '';
+    mergedForm.puissance_cv = +mergedForm.puissance_cv || 7;
+    mergedForm.duree_jours = +mergedForm.duree_jours || 365;
+    ['prime_annuelle','prime_nette','accessoires','frais_fichier','tva','carte_rose','dta','prime_ttc'].forEach(k => mergedForm[k] = +mergedForm[k] || 0);
+    const resp = await apiFetch('/api/generate-contract', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(mergedForm) });
+    if (!resp.ok) { let d = 'Erreur ' + resp.status; try { d = (await resp.json()).detail || d; } catch (e) {} throw new Error(d); }
+    const res = await resp.json();
+    LASTURLS = res.urls;
+    LASTCID = res.contract_id;
+    document.getElementById('final-title').textContent = res.avenant_no ? (EN ? `Endorsement No. ${res.avenant_no} issued` : `Avenant N° ${res.avenant_no} émis`) : t('s4_ok');
+    document.getElementById('final-police').textContent = res.contract_id;
+    document.getElementById('final-quittance').textContent = res.quittance_no;
+    document.getElementById('final-prime').textContent = fmtN(res.prime_ttc) + ' FCFA';
+    document.getElementById('final-sig').innerHTML = SIG_MODE === 'differee'
+      ? `<div class="inline-block bg-amber-50 border border-amber-400 text-amber-700 rounded px-2 py-1 font-bold text-xs">${t('s4_sig')}</div>` : '';
+    document.getElementById('final-warnings').innerHTML = (res.avertissements || []).map(w =>
+      `<div class="inline-block bg-amber-50 border border-amber-400 text-amber-700 rounded px-2 py-1 m-1">${escHtml(w)}</div>`).join('');
+    setDocTab('police');
+    document.getElementById('btn-dossier-pdf').href = withToken(res.urls.dossier);
+    document.getElementById('btn-eml').href = withToken(res.urls.eml);
+    const msg = encodeURIComponent(`AGC Assurances — Vos documents RCA :\nPolice : ${res.contract_id}\nQuittance : ${res.quittance_no}\nAssuré : ${mergedForm.prenoms} ${mergedForm.nom}\nVéhicule : ${mergedForm.marque} ${mergedForm.modele} ${mergedForm.immatriculation}\nPrime TTC : ${fmtN(mergedForm.prime_ttc)} FCFA`);
+    document.getElementById('btn-whatsapp').href = 'https://wa.me/?text=' + msg;
+    refreshRegCount();
+    loadExpirations();
+    gotoStep(4);
+    toast(res.avenant_no ? (EN ? 'Endorsement issued.' : 'Avenant émis.') : (EN ? 'Documents issued and archived.' : 'Documents émis et archivés au répertoire.'), 'success');
+  } catch (e) {
+    toast((EN ? 'Issuing failed: ' : 'Échec émission : ') + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    updateEmitBtn();
+  }
+});
+function setDocTab(kind) {
+  if (!LASTURLS) return;
+  currentDocTab = kind;
+  const labels = LANG === 'en'
+    ? { police: 'CONDITIONS PARTICULIÈRES', quittance: 'RECEIPT', facture: 'INVOICE' }
+    : { police: 'CONDITIONS PARTICULIÈRES', quittance: 'QUITTANCE', facture: 'FACTURE' };
+  document.getElementById('pdf-preview-frame').src = withToken(LASTURLS[kind]);
+  document.getElementById('btn-download-pdf').href = withToken(LASTURLS[kind]);
+  document.getElementById('btn-download-pdf').textContent = (LANG === 'en' ? 'DOWNLOAD — ' : 'TÉLÉCHARGER — ') + labels[kind];
+  document.querySelectorAll('.doctab').forEach(b => b.classList.toggle('active', b.dataset.doc === kind));
+}
+document.querySelectorAll('.doctab').forEach(b => b.addEventListener('click', () => setDocTab(b.dataset.doc)));
+document.getElementById('btn-back-3').addEventListener('click', () => gotoStep(2));
+document.getElementById('btn-new').addEventListener('click', () => location.reload());
+
+// ---------- repertoire ----------
+async function loadRegistre(q = '') {
+  const EN = LANG === 'en';
+  const body = document.getElementById('reg-body');
+  body.innerHTML = `<tr><td colspan="5" class="text-center text-slate-400 py-6">${t('loading')}</td></tr>`;
+  document.getElementById('reg-scope').textContent = t('all');
+  try {
+    const r = await apiFetch('/api/registre?q=' + encodeURIComponent(q));
+    const data = await r.json();
+    document.getElementById('reg-count').textContent = data.count;
+    document.getElementById('reg-count-3').textContent = data.count;
+    renderDirectory(data.rows || []);
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="5" class="text-center text-red-500 py-6">${EN ? 'Loading error.' : 'Erreur de chargement.'}</td></tr>`;
+  }
+}
+function renderDirectory(rows) {
+  const EN = LANG === 'en';
+  const body = document.getElementById('reg-body');
+  const groups = {};
+  rows.forEach(x => {
+    const k = (x.nom || '') + '|' + (x.prenoms || '');
+    (groups[k] = groups[k] || []).push(x);
+  });
+  const keys = Object.keys(groups).sort((a, b) => a.localeCompare(b, 'fr'));
+  document.getElementById('reg-count-2').textContent = keys.length;
+  if (!keys.length) { body.innerHTML = `<tr><td colspan="5" class="text-center text-slate-400 py-6">${EN ? 'No files.' : 'Aucun dossier.'}</td></tr>`; return; }
+  const isSup = true;
+  const H = EN ? ['Policy', 'Receipt', 'Period', 'Vehicle', 'Total premium', 'Follow-up', 'Documents', 'Actions']
+    : ['Police', 'Quittance', 'Période', 'Véhicule', 'Prime TTC', 'Suivi', 'Documents', 'Actions'];
+  body.innerHTML = keys.map((k, i) => {
+    const g = groups[k];
+    const c = g[0];
+    const vehs = [...new Set(g.map(x => escHtml(`${x.marque || ''} ${x.modele || ''} ${x.immatriculation || ''}`.trim())).filter(Boolean))].join('<br>');
+    const last = g.slice().sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))[0];
+    const verif = [];
+    if (c.numero_cni) verif.push(`CNI <b>${escHtml(c.numero_cni)}</b>`);
+    if (c.date_naissance) verif.push(`${EN ? 'Born' : 'Naissance'} <b>${escHtml(c.date_naissance)}</b>`);
+    if (c.nui) verif.push(`NUI <b>${escHtml(c.nui)}</b>`);
+    if (c.souscripteur_pc) verif.push(`${EN ? 'O/B/O' : 'P/C'} <b>${escHtml(c.souscripteur_pc)}</b>`);
+    const detail = `<tr id="det-${i}" class="hidden"><td colspan="5" style="padding:0"><div class="p-3 bg-slate-50 border-l-4" style="border-color:var(--agc-navy)">
+      <div class="text-xs text-slate-500 mb-2">${EN ? 'Internal record — verification:' : 'Fiche interne — vérification :'} ${verif.join(' · ') || '—'}</div>
+      <table class="reg"><thead><tr>${H.map(h => `<th${h.includes('/') ? ' style="text-align:right"' : ''}>${h}</th>`).join('')}</tr></thead><tbody>
+      ${g.map(x => {
+        const cancelled = (x.statut || 'actif') !== 'actif';
+        const pend = (x.signature_src || '') === 'differee';
+        return `<tr${cancelled ? ' style="opacity:.65"' : ''}>
+        <td class="text-xs">${escHtml(x.police_no)}${cancelled ? `<br><span class="badge bg-red-600 text-white">${EN ? 'CANCELLED' : 'ANNULÉ'}</span>` : ''}${+x.avenant_count ? `<br><span class="badge bg-blue-600 text-white">${EN ? 'END.' : 'AV.'} ${x.avenant_count}</span>` : ''}${pend && !cancelled ? `<br><span class="badge bg-amber-500 text-white">${EN ? 'SIGNATURE ?' : 'SIGNATURE ?'}</span>` : ''}<br><span class="text-slate-500">${escHtml(x.agent_display || x.agent || '')}</span></td>
+        <td class="text-xs">${escHtml(x.quittance_no)}</td>
+        <td class="text-xs">${escHtml(x.effet)} → ${escHtml(x.expiration)}</td>
+        <td>${escHtml(x.marque)} ${escHtml(x.modele)}<br><b>${escHtml(x.immatriculation)}</b></td>
+        <td class="text-right"><b>${fmtN(x.prime_ttc)}</b><br><span class="text-[11px] text-slate-400">FCFA — ${EN ? 'paid' : 'payée'}</span></td>
+        <td class="text-xs">${escHtml(x.canal)}<br>${escHtml(x.paiement)}</td>
+        <td class="text-xs whitespace-nowrap">
+          <a class="text-blue-700 underline" href="#" data-pv="${withToken('/api/contract/' + escHtml(x.police_no) + '/pdf?type=police')}" data-lbl="${EN ? 'Policy' : 'Police'} — ${escHtml(x.police_no)}" onclick="event.stopPropagation();event.preventDefault();previewPdf(this)">${EN ? 'Policy' : 'Police'}</a> ·
+          <a class="text-blue-700 underline" href="#" data-pv="${withToken('/api/contract/' + escHtml(x.police_no) + '/pdf?type=quittance')}" data-lbl="${EN ? 'Receipt' : 'Quittance'} — ${escHtml(x.police_no)}" onclick="event.stopPropagation();event.preventDefault();previewPdf(this)">${EN ? 'Receipt' : 'Quit.'}</a> ·
+          <a class="text-blue-700 underline" href="#" data-pv="${withToken('/api/contract/' + escHtml(x.police_no) + '/pdf?type=facture')}" data-lbl="${EN ? 'Invoice' : 'Facture'} — ${escHtml(x.police_no)}" onclick="event.stopPropagation();event.preventDefault();previewPdf(this)">${EN ? 'Invoice' : 'Fact.'}</a><br>
+          <a class="text-blue-700 underline" href="#" data-pv="${withToken('/api/contract/' + escHtml(x.police_no) + '/dossier.pdf')}" data-lbl="${EN ? '3-in-1 file' : 'Dossier 3-en-1'} — ${escHtml(x.police_no)}" onclick="event.stopPropagation();event.preventDefault();previewPdf(this)">${EN ? '3-in-1 file' : 'Dossier 3-en-1'}</a> ·
+          <a class="text-blue-700 underline" href="${withToken('/api/contract/' + escHtml(x.police_no) + '/email.eml')}">Email</a>
+        </td>
+        <td><div class="flex flex-col gap-1">
+          ${cancelled ? '' : `          <button class="btn-xs" onclick="event.stopPropagation();loadDraft('${escHtml(x.police_no)}', 'avenant')">${EN ? 'Endorse' : 'Avenant'}</button>
+          <button class="btn-xs" onclick="event.stopPropagation();loadDraft('${escHtml(x.police_no)}', 'renouveler')">${EN ? 'Renew' : 'Renouveler'}</button>
+          ${isSup ? `<button class="btn-xs danger" onclick="event.stopPropagation();doAnnuler('${escHtml(x.police_no)}')">${EN ? 'Cancel' : 'Annuler'}</button>` : ''}`}
+          ${isSup ? `<button class="btn-xs danger" onclick="event.stopPropagation();delRow('${escHtml(x.police_no)}')">${EN ? 'Del.' : 'Suppr.'}</button>` : ''}
+        </div></td>
+      </tr>`; }).join('')}
+      </tbody></table></div></td></tr>`;
+    return `<tr class="client-row" onclick="document.getElementById('det-${i}').classList.toggle('hidden')">
+      <td><span class="text-slate-400 font-black">▸</span> <b>${escHtml(c.nom)}</b><br><span class="text-slate-500 ml-4">${escHtml(c.prenoms)}</span><br><span class="text-[10px] text-slate-400 ml-4">${EN ? 'Created by' : 'Créé par'} ${escHtml(last.agent_display || last.agent || '—')}</span></td>
+      <td>${escHtml(c.telephone)}${c.operateur ? `<br><span class="text-[10px] font-bold text-green-700">${escHtml(c.operateur)}</span>` : ''}</td>
+      <td class="text-center font-bold">${g.length}</td>
+      <td class="text-xs">${vehs || '-'}</td>
+      <td class="text-xs">${escHtml(last.effet)} → ${escHtml(last.expiration)}<br><span class="text-slate-500">${escHtml(last.police_no)}</span></td>
+    </tr>` + detail;
+  }).join('');
+}
+function previewPdf(a) {
+  document.getElementById('pv-frame').src = a.dataset.pv;
+  document.getElementById('pv-title').textContent = t('pv_title') + ' — ' + (a.dataset.lbl || '');
+  document.getElementById('pv-download').href = a.dataset.pv;
+  document.getElementById('pdf-modal').classList.remove('hidden');
+}
+async function doAnnuler(police_no) {
+  const EN = LANG === 'en';
+  const ok = await formBox((EN ? 'Cancel policy ' : 'Annuler la police ') + police_no,
+    `<label class="flabel">${EN ? 'Cancellation reason *' : "Motif d'annulation *"}</label><input id="an-motif" class="field-input">`,
+    EN ? 'CANCEL' : 'ANNULER');
+  if (!ok) return;
+  const motif = document.getElementById('an-motif').value.trim();
+  if (!motif) { toast(EN ? 'Reason required.' : 'Motif requis.', 'warn'); return; }
+  const r = await apiFetch('/api/registre/' + encodeURIComponent(police_no) + '/annuler', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ motif }) });
+  if (r.ok) { toast(EN ? 'Policy cancelled.' : 'Police annulée.', 'success'); loadRegistre(document.getElementById('reg-search').value || ''); loadExpirations(); }
+  else toast(EN ? 'Cannot cancel.' : 'Annulation impossible.', 'error');
+}
+async function delRow(police_no) {
+  const EN = LANG === 'en';
+  if (!await confirmBox(EN ? `PERMANENTLY delete file ${police_no} (contract, payments, files)? Prefer cancellation with a reason.` : `Supprimer DÉFINITIVEMENT le dossier ${police_no} (contrat, paiements, fichiers) ? Préférez l'annulation avec motif.`)) return;
+  const r = await apiFetch('/api/registre/' + encodeURIComponent(police_no), { method: 'DELETE' });
+  if (r.ok) { toast(EN ? 'File deleted.' : 'Dossier supprimé.', 'success'); loadRegistre(document.getElementById('reg-search').value || ''); loadExpirations(); }
+  else toast(EN ? 'Cannot delete.' : 'Suppression impossible.', 'error');
+}
+let regTimer = null;
+document.getElementById('reg-search').addEventListener('input', e => {
+  clearTimeout(regTimer);
+  regTimer = setTimeout(() => loadRegistre(e.target.value), 300);
+});
+async function refreshRegCount() {
+  try {
+    const r = await apiFetch('/api/registre?q=');
+    const data = await r.json();
+    document.getElementById('reg-count').textContent = data.count;
+  } catch (e) {}
+}
+
+// ---------- expirations ----------
+async function loadExpirations() {
+  try {
+    const r = await apiFetch('/api/expirations?jours=30');
+    const d = await r.json();
+    const n = d.count || 0;
+    document.getElementById('exp-count').textContent = n;
+    document.getElementById('exp-bell').classList.toggle('hidden', n === 0);
+  } catch (e) {}
+}
+document.getElementById('exp-bell').addEventListener('click', async () => {
+  const EN = LANG === 'en';
+  const r = await apiFetch('/api/expirations?jours=60');
+  const d = await r.json();
+  const rows = (d.rows || []).map(x => {
+    const left = x.jours_restants;
+    const cls = left < 0 ? 'text-red-600' : left <= 15 ? 'text-amber-600' : 'text-slate-600';
+    const lbl = left < 0 ? (EN ? `expired ${-left}d ago` : `expiré depuis ${-left} j`) : left === 0 ? (EN ? 'expires today' : "expire aujourd'hui") : (EN ? `D-${left}` : `J-${left}`);
+    return `<tr><td class="text-xs">${escHtml(x.police_no)}</td><td><b>${escHtml(x.nom)}</b> ${escHtml(x.prenoms)}<br><span class="text-slate-500 text-xs">${escHtml(x.marque)} ${escHtml(x.modele)} ${escHtml(x.immatriculation)}</span></td>
+      <td class="text-xs">${escHtml(x.expiration)}<br><b class="${cls}">${lbl}</b></td>
+      <td><button class="btn-xs" onclick="document.getElementById('form-modal').classList.add('hidden');loadDraft('${escHtml(x.police_no)}', 'renouveler')">${EN ? 'Renew' : 'Renouveler'}</button></td></tr>`;
+  }).join('') || `<tr><td colspan="4" class="text-center text-slate-400 py-4">${EN ? 'No policy near expiry.' : 'Aucun contrat proche de l’expiration.'}</td></tr>`;
+  const HH = EN ? ['Policy', 'Client / Vehicle', 'Expiry', ''] : ['Police', 'Client / Véhicule', 'Expiration', ''];
+  await formBox(EN ? 'Expiring policies (60 days)' : 'Contrats expirant (60 jours)', `<table class="reg"><thead><tr>${HH.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>`, EN ? 'CLOSE' : 'FERMER');
+});
+
+// ---------- pilotage ----------
+async function loadPilotage() {
+  const EN = LANG === 'en';
+  const body = document.getElementById('pilotage-body');
+  body.innerHTML = `<p class="text-center text-slate-400 py-6">${t('loading')}</p>`;
+  document.getElementById('pilot-scope').textContent = t('all');
+  try {
+    const d = await (await apiFetch('/api/stats')).json();
+    document.getElementById('btn-exp-csv').href = withToken('/api/export.csv');
+    document.getElementById('btn-exp-json').href = withToken('/api/export.json');
+    document.getElementById('btn-backup').href = withToken('/api/backup');
+    document.getElementById('btn-backup-latest').href = withToken('/api/backups/latest');
+    try {
+      const bk = await (await apiFetch('/api/backups')).json();
+      const autos = (bk.auto || []).slice(0, 5).map(a => `<div>${escHtml(a.name)} — ${(a.size / 1024).toFixed(0)} Ko — ${escHtml(a.at || '')}</div>`).join('') || `<div>${EN ? 'None yet (created daily once there is data).' : 'Aucune pour l’instant (créée quotidiennement dès qu’il y a des données).'}</div>`;
+      document.getElementById('autobk-body').innerHTML = `<b>${EN ? 'Automatic backups' : 'Sauvegardes automatiques'} (${EN ? 'register copies after each issue' : 'copies registre après chaque émission'} : ${bk.snapshots || 0})</b>${autos}`;
+    } catch (e2) { document.getElementById('autobk-body').innerHTML = ''; }
+    try {
+      const au = await (await apiFetch('/api/audit?limit=200')).json();
+      document.getElementById('audit-body').innerHTML = (au.rows || []).map(a =>
+        `<tr><td class="text-xs">${escHtml(a.at || '')}</td><td><b>${escHtml(a.username)}</b></td><td>${escHtml(a.action)}</td><td class="text-xs">${escHtml(a.police_no)}</td><td class="text-xs">${escHtml(a.detail)}</td></tr>`).join('') || `<tr><td colspan="5" class="text-center text-slate-400 py-4">${EN ? 'Empty.' : 'Vide.'}</td></tr>`;
+    } catch (e2) { document.getElementById('audit-body').innerHTML = `<tr><td colspan="5" class="text-center text-slate-400 py-4">${EN ? 'Unavailable.' : 'Non disponible.'}</td></tr>`; }
+    const bars = (arr, key) => {
+      const max = Math.max(1, ...arr.map(x => x.t || 0));
+      return arr.map(x => `<div class="mb-2"><div class="flex justify-between text-xs mb-1"><b>${escHtml(x[key] || '—')}</b><span>${x.n} · ${fmtN(x.t)} FCFA</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:${Math.round(100 * (x.t || 0) / max)}%"></div></div></div>`).join('') || `<p class="text-xs text-slate-400">${EN ? 'No data.' : 'Aucune donnée.'}</p>`;
+    };
+    body.innerHTML = `
+      <div class="grid grid-cols-2 sm:grid-cols-2 gap-3 mb-4">
+        <div class="kpi"><div class="text-[11px] font-bold text-slate-500">${EN ? 'ACTIVE POLICIES' : 'CONTRATS ACTIFS'}</div><div class="text-2xl font-black agc-navy-text">${d.actifs}</div></div>
+        <div class="kpi"><div class="text-[11px] font-bold text-slate-500">${EN ? 'TOTAL PREMIUMS (PAID)' : 'PRIMES TTC (PAYÉES)'}</div><div class="text-2xl font-black agc-navy-text">${fmtN(d.total_ttc)}</div><div class="text-[11px] text-slate-400">FCFA</div></div>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-2 gap-3 mb-4">
+        <div class="kpi"><div class="text-[11px] font-bold text-slate-500">${EN ? "TODAY" : "AUJOURD'HUI"}</div><div class="text-xl font-black">${d.jour.n} ${EN ? 'policie(s)' : 'contrat(s)'} · ${fmtN(d.jour.ttc)} FCFA</div></div>
+        <div class="kpi"><div class="text-[11px] font-bold text-slate-500">${EN ? 'THIS MONTH' : 'CE MOIS'}</div><div class="text-xl font-black">${d.mois.n} ${EN ? 'policie(s)' : 'contrat(s)'} · ${fmtN(d.mois.ttc)} FCFA</div></div>
+      </div>
+      <div class="bg-white rounded-xl shadow p-4"><h3 class="font-extrabold agc-navy-text mb-2 text-sm">${EN ? 'Premiums by agent' : 'Primes par agent'}</h3>${bars(d.par_agent, 'agent')}</div>`;
+  } catch (e) { body.innerHTML = `<p class="text-center text-red-500 py-6">${EN ? 'Loading error.' : 'Erreur de chargement.'}</p>`; }
+}
+
+document.getElementById('restore-file').addEventListener('change', async e => {
+  const EN = LANG === 'en';
+  const f = e.target.files[0];
+  if (!f) return;
+  if (!await confirmBox(EN ? 'Restore this backup? Current data will be replaced (a safety copy is kept).' : 'Restaurer cette sauvegarde ? Les données actuelles seront remplacées (une copie de sécurité est conservée).')) { e.target.value = ''; return; }
+  const fd = new FormData();
+  fd.append('file', f);
+  const r = await apiFetch('/api/restore', { method: 'POST', body: fd });
+  e.target.value = '';
+  if (r.ok) { const d = await r.json(); toast((EN ? `Restore OK (${d.restored} files). Reloading…` : `Restauration OK (${d.restored} fichiers). Rechargement…`), 'success'); setTimeout(() => location.reload(), 1500); }
+  else { let m = 'Erreur'; try { m = (await r.json()).detail || m; } catch (e) {} toast(m, 'error'); }
+});
+document.getElementById('import-file').addEventListener('change', async e => {
+  const EN = LANG === 'en';
+  const f = e.target.files[0];
+  if (!f) return;
+  const fd = new FormData();
+  fd.append('file', f);
+  const r = await apiFetch('/api/import.csv', { method: 'POST', body: fd });
+  e.target.value = '';
+  if (r.ok) { const d = await r.json(); toast((EN ? `Import: ${d.imported} file(s), ${d.skipped} skipped.` : `Import : ${d.imported} dossier(s), ${d.skipped} ignoré(s).`), 'success'); }
+  else { let m = 'Erreur'; try { m = (await r.json()).detail || m; } catch (e) {} toast(m, 'error'); }
+});
+boot();
+</script>
+</body>
+</html>

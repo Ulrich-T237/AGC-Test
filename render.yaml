@@ -1,0 +1,18 @@
+# AGC Assurances - RCA issuing app (Render Blueprint).
+# Deploy: Render dashboard > New > Blueprint > connect this repo.
+# IMPORTANT: attach a persistent disk (1 GB) mounted at /data, otherwise
+# the register is lost on every restart (free instances have ephemeral disks).
+services:
+  - type: web
+    name: agc-rca
+    runtime: docker
+    plan: starter
+    disk:
+      name: agc-data
+      mountPath: /data
+      sizeGB: 1
+    # Open mode (v5.3): the app has no login screen. Anyone with the URL can
+    # use it - only deploy on a trusted network or behind your own access control.
+    envVars:
+      - key: STORAGE_DIR
+        value: /data
