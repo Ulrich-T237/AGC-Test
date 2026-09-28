@@ -12,8 +12,37 @@
    PC (`start.bat`) is the real archive, not the free site.
 3. **Slow CPU:** one OCR control (6 photos) takes ~2–4 min on free CPU
    (under 1 min on a PC). Watch the live `photo X/6` progress and wait.
+   Tip: set a `GEMINI_API_KEY` (see **Speed boost** below) and reading
+   drops to seconds per photo even on free CPU.
 4. **Public link:** the app has NO login screen. Anyone with the URL can
    use it. Keep the link private; test data only.
+
+## Speed boost (optional): Gemini cloud reading (v5.4.0+)
+
+Without a key the app reads photos locally (slow on free CPU, fast on a
+PC). With a free Gemini key, Google reads each photo in seconds and the
+app keeps working exactly the same (same checks, same 3 PDFs).
+
+1. Get a free key at https://aistudio.google.com/apikey (**never share
+   it**, never paste it in chat).
+2. Render dashboard → your service → **Environment** → add
+   `GEMINI_API_KEY` = your key → **Save** (auto-redeploys, ~5 min).
+   On the office PC instead: add `GEMINI_API_KEY=...` to `.env`.
+3. Check it works: open `your-url/api/status` → `"cloud": true`.
+   Each control also shows the engine used (look for `Gemini-Cloud`).
+
+Good to know:
+
+- **Quota:** the free key allows roughly ~20 reads/day on Flash models
+  (Sept 2026 figures, varies by account). One control = 3–6 reads.
+  Empty quota or any error → the app **automatically** falls back to
+  local reading. Nothing breaks, it just gets slower.
+- **Privacy:** photos are sent to Google for reading. For sensitive
+  batches use the office PC with `OCR_MODE=local` in `.env` (100 %
+  local, no photo ever leaves the PC).
+- **Model:** if Google renames models and reading fails, set
+  `GEMINI_MODEL` to the current Flash model name (default today:
+  `gemini-3.8-flash`) and redeploy.
 
 ## Path A — you already deployed before (update to the latest version)
 1. Download the newest `agc_rca_app.zip`, extract it.
@@ -23,7 +52,7 @@
 4. Render dashboard → your service → it rebuilds automatically (~5 min).
    If nothing happens: **Manual Deploy → Deploy latest commit**.
 5. Open your URL → **Ctrl+F5** → the header chip must show the new
-   version (e.g. **v5.3.5**). Done.
+   version (e.g. **v5.4.0**). Done.
 
 ## Path B — first deployment from scratch (~25 min)
 1. Create a free account at https://github.com (verify your email).

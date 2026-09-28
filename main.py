@@ -28,6 +28,8 @@ from difflib import SequenceMatcher
 import cv2
 import numpy as np
 import pytesseract
+import requests
+from PIL import Image, ImageOps
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, UploadFile, HTTPException, Request
 from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
@@ -99,7 +101,7 @@ def get_rapid():
                     _rapid_failed = True
     return _rapid_engine
 
-app = FastAPI(title="AGC Assurances - Emission RCA triple-document", version="5.3.5")
+app = FastAPI(title="AGC Assurances - Emission RCA triple-document", version="5.4.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True,
                    allow_methods=["*"], allow_headers=["*"])
 from fastapi.staticfiles import StaticFiles
@@ -489,9 +491,97 @@ def ocr_with_tesseract_multi(bw: np.ndarray, clahe: np.ndarray,
     texts = [p for p in out if p and p.strip()]
     return "\n".join(texts), rescue and len(texts) > 2
 
+# ============================================================ CLOUD OCR (Gemini)
+# Cloud-first when GEMINI_API_KEY is set (fast everywhere, ~seconds/photo);
+# any cloud failure falls back to the local pipeline automatically.
+# OCR_MODE=local forces 100% local (office privacy mode). Model is pinned
+# via GEMINI_MODEL because Google renames models often.
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+GEMINI_TIMEOUT = 90
+
+def _gemini_key() -> str:
+    return (os.getenv("GEMINI_API_KEY") or "").strip()
+
+def _gemini_ready() -> bool:
+    if (os.getenv("OCR_MODE") or "").lower() == "local":
+        return False
+    return bool(_gemini_key())
+
+_GEMINI_PROMPT = (
+    "Transcribe every printed text line visible on this identity/vehicle "
+    "document photo, line by line, top to bottom. Copy numbers, codes, "
+    "dates and names EXACTLY as printed (keep accents). Output ONLY the "
+    "transcribed lines, one per line, no commentary, no markdown, no bullets."
+)
+
+def _gemini_transcribe(jpeg_bytes: bytes) -> str:
+    url = ("https://generativelanguage.googleapis.com/v1beta/models/"
+           f"{GEMINI_MODEL}:generateContent")
+    body = {"contents": [{"parts": [
+        {"text": _GEMINI_PROMPT},
+        {"inline_data": {"mime_type": "image/jpeg",
+                         "data": base64.b64encode(jpeg_bytes).decode()}}]}]}
+    last = "no attempt"
+    for _ in range(2):
+        try:
+            r = requests.post(url, params={"key": _gemini_key()}, json=body,
+                              timeout=GEMINI_TIMEOUT)
+        except Exception as e:
+            last = f"network: {e}"
+            time.sleep(2)
+            continue
+        if r.status_code == 429 or 400 <= r.status_code < 500:
+            raise RuntimeError(f"gemini rejected ({r.status_code}): {r.text[:160]}")
+        try:
+            r.raise_for_status()
+        except Exception as e:
+            last = f"http: {e}"
+            time.sleep(2)
+            continue
+        try:
+            data = r.json()
+            parts = (data.get("candidates") or [{}])[0].get("content", {}).get("parts", [])
+            text = "\n".join(p.get("text", "") for p in parts if p.get("text")).strip()
+            if not text:
+                raise RuntimeError(f"empty reply: {str(data)[:200]}")
+            return text
+        except Exception as e:
+            last = f"parse: {e}"
+            break
+    raise RuntimeError(f"gemini failed ({last})")
+
+def _cloud_prep(image_bytes: bytes):
+    """EXIF-upright + cap 1600px + JPEG for the vision API. No OCR here."""
+    img = ImageOps.exif_transpose(Image.open(io.BytesIO(image_bytes))).convert("RGB")
+    w, h = img.size
+    if max(w, h) > 1600:
+        s = 1600 / max(w, h)
+        img = img.resize((max(1, int(w * s)), max(1, int(h * s))), Image.LANCZOS)
+    buf = io.BytesIO()
+    img.save(buf, "JPEG", quality=85)
+    raw = buf.getvalue()
+    return raw, "data:image/jpeg;base64," + base64.b64encode(raw).decode()
+
+def ocr_document_cloud(image_bytes: bytes) -> Dict[str, Any]:
+    jpeg, preview = _cloud_prep(image_bytes)
+    t0 = time.time()
+    text = _gemini_transcribe(jpeg)
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    print(f"[OCR] gemini {GEMINI_MODEL} {len(lines)} lines in {time.time() - t0:.0f}s",
+          flush=True)
+    return {"rapid_lines": [], "tesseract_text": "",
+            "merged_lines": lines, "combined_text": "\n".join(lines),
+            "clean_preview": preview, "osd_angle": 0,
+            "deskew_angle": 0.0, "engines": ["Gemini-Cloud"]}
+
 def ocr_document(image_bytes: bytes) -> Dict[str, Any]:
-    """Full OCR of one photo: OSD upright + cleanup + dual engine (multi-pass)
-    + rescue passes on weak reads + merged lines."""
+    """Full OCR of one photo: cloud-first (Gemini) with automatic local
+    fallback (OSD upright + cleanup + dual engine + rescue passes)."""
+    if _gemini_ready():
+        try:
+            return ocr_document_cloud(image_bytes)
+        except Exception as e:
+            print(f"[OCR] cloud failed, local fallback: {e}", flush=True)
     prep = preprocess(image_bytes)
     rapid_lines = ocr_with_rapid(prep["gray"])
     rapid_text = "\n".join(l["text"] for l in rapid_lines)
@@ -1641,7 +1731,7 @@ async def status():
     return {"status": "online", "version": app.version,
             "tesseract": TESSERACT_OK,
             "rapidocr": get_rapid() is not None,
-            "cloud": False,
+            "cloud": _gemini_ready(),
             "auth": "open",
             "langue": get_setting("langue", "fr")}
 

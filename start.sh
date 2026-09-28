@@ -39,7 +39,7 @@ PORT=${PORT:-8000}
 echo ""
 echo "=========================================================="
 echo " Starting AGC Assurances App on http://localhost:$PORT"
-echo " Engines: 100% local OCR (RapidOCR + Tesseract), no cloud"
+echo " Engines: Gemini cloud if key set, else 100% local OCR"
 echo "=========================================================="
 echo ""
 

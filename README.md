@@ -240,4 +240,6 @@ app/
 | Port 8000 occupé | Changer `PORT` dans `.env` |
 | Émission bloquée « PTAC incohérent » | Corriger les poids : vide + charge utile doit égaler le total CG (±50 kg) |
 
+**v5.4.0** — lecture cloud Gemini en option (`GEMINI_API_KEY` dans `.env`) : quelques secondes/photo, repli local automatique si quota/coupure ; `OCR_MODE=local` = 100 % local.
+
 *AGC Assurances — Générales du Cameroun. Usage interne agence.*
