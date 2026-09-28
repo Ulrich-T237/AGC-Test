@@ -32,11 +32,15 @@ pip install --quiet -r requirements.txt
 echo "Trying optional neural OCR engine (non-fatal)..."
 pip install --quiet -r requirements-ocr.txt || echo "[INFO] Neural OCR unavailable on this Python - continuing in Tesseract mode."
 
+# Port from .env (default 8000), same as start.bat
+PORT=$(grep -E '^PORT=' .env 2>/dev/null | cut -d= -f2 | tr -d ' \r')
+PORT=${PORT:-8000}
+
 echo ""
 echo "=========================================================="
-echo " Starting AGC Assurances App on http://localhost:8000"
+echo " Starting AGC Assurances App on http://localhost:$PORT"
 echo " Engines: 100% local OCR (RapidOCR + Tesseract), no cloud"
 echo "=========================================================="
 echo ""
 
-uvicorn main:app --host 0.0.0.0 --port 8000
+uvicorn main:app --host 0.0.0.0 --port "$PORT"

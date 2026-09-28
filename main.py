@@ -29,19 +29,10 @@ import cv2
 import numpy as np
 import pytesseract
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Request
+from fastapi import FastAPI, File, UploadFile, HTTPException, Request
 from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from PIL import Image
-
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
-from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage,
-)
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import mm
 
 # ---------------------------------------------------------------- config
 BASE_DIR = Path(__file__).resolve().parent
@@ -108,7 +99,7 @@ def get_rapid():
                     _rapid_failed = True
     return _rapid_engine
 
-app = FastAPI(title="AGC Assurances - Emission RCA triple-document", version="5.3.4")
+app = FastAPI(title="AGC Assurances - Emission RCA triple-document", version="5.3.5")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True,
                    allow_methods=["*"], allow_headers=["*"])
 from fastapi.staticfiles import StaticFiles
@@ -1571,9 +1562,6 @@ def registry_list(q: str = "", branche: str = "", agent: str = "") -> List[Dict[
         d["agent_display"] = users.get(d.get("agent") or "", d.get("agent") or "")
         out.append(d)
     return out
-
-# Number-to-words lives in pdfs.py (PDF engine); re-exported here.
-from pdfs import montant_en_lettres  # noqa: E402
 
 # ============================================================ API MODELS
 class PrimeRequest(BaseModel):

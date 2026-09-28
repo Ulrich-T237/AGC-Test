@@ -1,18 +1,24 @@
-# AGC Assurances - RCA issuing app (Render Blueprint).
+# AGC Assurances - RCA issuing app (Render Blueprint, FREE tier).
 # Deploy: Render dashboard > New > Blueprint > connect this repo.
-# IMPORTANT: attach a persistent disk (1 GB) mounted at /data, otherwise
-# the register is lost on every restart (free instances have ephemeral disks).
+#
+# FREE-TIER REALITY (read before using online):
+# - The service SLEEPS after 15 min without visitors; first visit
+#   afterwards takes ~1 min to wake up.
+# - Storage is EPHEMERAL (no disk on free): the customer registry and
+#   generated files are WIPED on every restart/redeploy. Always download
+#   your PDFs immediately; the office PC is the real archive.
+# - Open mode (v5.3+): the app has NO login screen. Anyone with the URL
+#   can use it. Keep the link private, test data only.
 services:
   - type: web
     name: agc-rca
     runtime: docker
-    plan: starter
-    disk:
-      name: agc-data
-      mountPath: /data
-      sizeGB: 1
-    # Open mode (v5.3): the app has no login screen. Anyone with the URL can
-    # use it - only deploy on a trusted network or behind your own access control.
+    plan: free
+    region: frankfurt
     envVars:
       - key: STORAGE_DIR
         value: /data
+      - key: OMP_NUM_THREADS
+        value: 1
+      - key: OPENBLAS_NUM_THREADS
+        value: 1

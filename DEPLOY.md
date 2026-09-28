@@ -1,91 +1,71 @@
-# Mise en ligne — AGC RCA (GitHub + Render)
+# Host the AGC RCA app online for FREE (GitHub + Render)
 
-Objectif : l'application tourne sur internet, utilisable depuis
-l'agence ou la maison.
+> Works today, no credit card. Read **"Free-tier rules"** below first —
+> free hosting has hard limits (sleeping, wiped storage, slow CPU).
 
-> **v5.3, mode ouvert : l'application n'a PAS de page de connexion.**
-> Toute personne ayant l'adresse peut l'utiliser. Ne la déployez que
-> sur un réseau de confiance, ou ajoutez votre propre contrôle d'accès
-> devant (ex. Cloudflare Access, VPN, restriction IP).
+## Free-tier rules (important)
+1. **Sleep:** the service sleeps after 15 min without visitors. The first
+   visit afterwards takes ~1 min to wake up. This is normal.
+2. **Wiped storage:** the free tier has NO persistent disk. The customer
+   registry, contracts and uploaded photos are **erased on every restart
+   or redeploy**. Always **download your 3 PDFs immediately**. The office
+   PC (`start.bat`) is the real archive, not the free site.
+3. **Slow CPU:** one OCR control (6 photos) takes ~2–4 min on free CPU
+   (under 1 min on a PC). Watch the live `photo X/6` progress and wait.
+4. **Public link:** the app has NO login screen. Anyone with the URL can
+   use it. Keep the link private; test data only.
 
-## Étape 1 — Créer l'organisation GitHub (5 min)
+## Path A — you already deployed before (update to the latest version)
+1. Download the newest `agc_rca_app.zip`, extract it.
+2. In your local repo folder (GitHub Desktop), overwrite everything with
+   the extracted files.
+3. GitHub Desktop → write a summary → **Commit** → **Push origin**.
+4. Render dashboard → your service → it rebuilds automatically (~5 min).
+   If nothing happens: **Manual Deploy → Deploy latest commit**.
+5. Open your URL → **Ctrl+F5** → the header chip must show the new
+   version (e.g. **v5.3.5**). Done.
 
-1. Sur https://github.com, créez une organisation, ex. `agc-assurances`
-   (profil > Settings > Organizations > New organization, offre gratuite).
-2. Dans l'organisation, créez un dépôt **privé** `agc-rca`
-   (privé = seul votre personnel y accède).
+## Path B — first deployment from scratch (~25 min)
+1. Create a free account at https://github.com (verify your email).
+2. Install **GitHub Desktop** (https://desktop.github.com), sign in.
+3. GitHub Desktop → **File → New repository**: name e.g. `agc-rca-test`,
+   Local path anywhere → **Create** → copy ALL app files into that
+   folder → summary → **Commit** → **Publish repository** (private OK).
+4. Create a free account at https://render.com (**sign up with GitHub**).
+5. Render → **New → Web Service** → connect the repo → settings:
+   - Runtime: **Docker** — Region: **Frankfurt** — Plan: **Free**
+   - Leave build/start commands empty (the Dockerfile handles it).
+   - No environment variables needed → **Deploy**.
+6. Wait ~5–15 min (first build installs Tesseract + OCR). Status turns
+   **Live** → open `https://YOUR-NAME.onrender.com` → Ctrl+F5.
 
-## Étape 2 — Envoyer l'application (sur votre PC)
+## Verify it works (5 min)
+1. Header chip shows the current version; `/api/status` says
+   `"tesseract": true, "rapidocr": true`.
+2. Upload the **3 required photos** → LANCER LE CONTRÔLE OCR → step 2
+   appears with merged fields.
+3. Generate a contract → download Police, Quittance, Facture.
+4. Repeat once with all **6 photos** (rectos + versos).
 
-Ouvrez un terminal dans le dossier de l'application :
+## Daily use
+1. Open the URL (wait ~1 min if it was sleeping).
+2. New file → upload client photos → run the OCR control.
+3. Review/correct fields → Signature → Documents → **download the 3
+   PDFs at once** (they vanish on the next restart).
+4. Never treat the online registry as an archive — re-download rule.
 
-```bash
-git remote add origin https://github.com/agc-assurances/agc-rca.git
-git branch -M main
-git push -u origin main
-```
+## Updating later / stopping
+- **Update:** same as Path A (overwrite → Commit → Push → auto-rebuild).
+- **Pause:** Render → service → **Suspend** (free, keeps settings).
+- **Delete:** Render → Settings → **Delete Web Service**.
 
-(Identifiez-vous avec votre compte GitHub quand demandé.)
-
-## Étape 3 — Déployer sur Render (10 min)
-
-1. Créez un compte sur https://render.com (connexion via GitHub).
-2. **New > Blueprint**, connectez le dépôt `agc-assurances/agc-rca`.
-3. Render détecte `render.yaml` : validez, puis **Deploy**
-   (aucune variable de compte à renseigner en v5.3).
-4. Attendez la fin du déploiement (~5 min, installation de l'OCR).
-   Votre adresse : `https://agc-rca.onrender.com` (modifiable ensuite).
-5. Ouvrez l'adresse : l'application s'affiche directement
-   (Nouveau / Répertoire / Pilotage), prête à émettre.
-
-## Points importants (à lire)
-
-- **Disque persistant obligatoire.** Sans le disque 1 Go (`/data`),
-  le répertoire est effacé à chaque redémarrage. Le `render.yaml`
-  fourni l'inclut (offre Starter, quelques dollars/mois).
-  L'offre gratuite **ne convient pas** à la production.
-- **Sauvegardes.** L'application fait une sauvegarde automatique
-  quotidienne + une copie du répertoire à chaque émission.
-  Téléchargez régulièrement une sauvegarde (onglet Pilotage)
-  et conservez-la hors ligne (clé USB).
-- **HTTPS inclus.** Render chiffre les connexions (cadenas navigateur).
-  Cela ne remplace PAS un contrôle d'accès : l'application reste
-  ouverte à qui connaît l'adresse (voir avertissement plus haut).
-- **Coûts récurrents.** Hors Render, l'application elle-même est
-  100 % locale et gratuite (aucun appel cloud payant).
-
-## Usage mixte (recommandé au démarrage)
-
-Gardez le PC de l'agence (`start.bat`) comme poste principal et
-utilisez la version en ligne pour le travail à domicile. Les deux
-ont des répertoires séparés : rapprochez-les via
-Pilotage > Export CSV si besoin.
-
-## Option B — Test gratuit à distance (Render, sans carte bancaire)
-
-Pour tester à distance quelques jours/semaines, puis tout supprimer.
-(Hugging Face demande désormais un abonnement payant pour les applis
-Docker : ne pas utiliser.)
-
-> Même avertissement : l'application est **ouverte** (pas de connexion).
-> Qui a l'adresse peut l'utiliser. Données de test uniquement, lien
-> partagé en privé, supprimez le service après les tests.
-
-Limites du gratuit : le service s'endort après 15 min sans visite
-(1re visite = ~1 min de réveil), 512 Mo de RAM (OCR plus lent),
-données effacées à chaque redémarrage (pensez au ZIP de sauvegarde
-dans Pilotage). Aucune carte requise.
-
-1. Mettez l'application sur GitHub (gratuit) :
-   - Créez un compte sur https://github.com, puis un dépôt `agc-rca-test`.
-   - Le plus simple : installez **GitHub Desktop**, clonez le dépôt,
-     copiez-y le contenu dézippé de l'application, Commit + Push.
-2. Créez un compte sur https://render.com (connexion via GitHub).
-3. **New > Web Service**, connectez le dépôt `agc-rca-test` :
-   Runtime **Docker**, région **Frankfurt** (la plus proche),
-   plan **Free**. Aucune variable à renseigner. Create.
-4. Attendez le build (~5-15 min, installation de l'OCR).
-   Adresse de test : `https://agc-rca-test.onrender.com`
-   (le 1er contrôle OCR télécharge les modèles, ~1-2 min en plus).
-5. **Retirer :** tableau Render → le service → Settings →
-   **Delete** (ou **Suspend** pour le couper en gardant la config).
+## Troubleshooting
+| Symptom | Cause → fix |
+|---|---|
+| Old version chip after push | Browser cache → **Ctrl+F5**. Still old → Render Events tab: if no build ran, Manual Deploy → Deploy latest commit. |
+| Build fails on `libGL` / cv2 | Fixed since v5.3.1 (`libgl1` in Dockerfile) → update to latest zip. |
+| `Timeout` in red, job slow | Free CPU + big photos: wait for the `photo X/6` counter; retry with 3 photos first; check Render Logs `[JOB …]` lines. |
+| `Job lost (server restarted?)` | Free instance restarted mid-job (rare) → just retry. |
+| Page loads but OCR button dead | Check the version chip + `/api/status`; hard-refresh. |
+| Registry/contracts gone | Normal on free (ephemeral storage) → re-upload, download PDFs same session. |
+| iPhone photo rejected (HEIC) | Convert to JPG first (Photos → Share → Save) or screenshot it. |
