@@ -32,7 +32,7 @@ import requests
 from PIL import Image, ImageOps
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, UploadFile, HTTPException, Request
-from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -101,7 +101,7 @@ def get_rapid():
                     _rapid_failed = True
     return _rapid_engine
 
-app = FastAPI(title="AGC Assurances - Emission RCA triple-document", version="5.4.1")
+app = FastAPI(title="AGC Assurances - Emission RCA triple-document", version="5.5.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True,
                    allow_methods=["*"], allow_headers=["*"])
 from fastapi.staticfiles import StaticFiles
@@ -220,7 +220,7 @@ def _tess_langs() -> str:
             _tess_lang = "eng"
     return _tess_lang
 
-def _tess(img: np.ndarray, psm: int, timeout: int = 240) -> str:
+def _tess(img: np.ndarray, psm: int, timeout: int = 90) -> str:
     """One tesseract call with a hard timeout: a hung/infinite OCR call must
     never wedge the whole job, so on timeout it returns '' (no retry)."""
     try:
@@ -378,6 +378,39 @@ def _micro_trim(bw):
         return bw
     return bw[y0:y1, x0:x1]
 
+def _micro_neighbor_token(rapid_lines: List[Dict[str, Any]], idx: int, zone: str,
+                          pat, gaz) -> str:
+    """Validated token already present where the value must sit (pure python,
+    ~free): same line for "right" rules, the next two lines for "below" rules.
+    Gazetteer rules only accept exact/repair matches here (the loose bodywork
+    pattern is only safe on the zoomed crop). Returns "" when the zoomed
+    re-read is still needed."""
+    if gaz == "GAGE":
+        targets = {"OUI", "NON"}
+    elif gaz == "CARROSSERIE":
+        targets = set(_CARROSSERIE_CODES)
+    else:
+        targets = None
+    if zone == "right":
+        lo, hi = idx, idx + 1
+    else:
+        lo, hi = idx + 1, idx + 3
+    lo, hi = max(0, lo), min(len(rapid_lines), hi)
+    for j in range(lo, hi):
+        for raw in (rapid_lines[j].get("text") or "").split():
+            tok = re.sub(r"[^A-Z0-9]", "", strip_accents(raw).upper()).strip()
+            if not tok or tok in _MICRO_STOP:
+                continue
+            if gaz in ("GAGE", "CARROSSERIE"):
+                if tok in targets:
+                    return tok
+                fix = _micro_repair(tok, targets)
+                if fix:
+                    return fix
+            elif pat and re.match(pat, tok):
+                return tok
+    return ""
+
 def _micro_read(gray, rapid_lines: List[Dict[str, Any]]) -> Dict[int, List[str]]:
     """Zoom into tiny values next to their labels (seats, bodywork, pledge, sex,
     licence category): crop -> 4x upscale -> dual-threshold trim -> PSM ensemble.
@@ -397,6 +430,12 @@ def _micro_read(gray, rapid_lines: List[Dict[str, Any]]) -> Dict[int, List[str]]
             else:
                 ok = any(mk in ns for mk in markers)
             if not ok:
+                continue
+            win0 = _micro_neighbor_token(rapid_lines, idx, zone, pat, gaz)
+            if win0:
+                found.setdefault(idx, [])
+                if win0 not in found[idx]:
+                    found[idx].append(win0)
                 continue
             try:
                 box = ln.get("box") or []
@@ -478,18 +517,19 @@ def _micro_read(gray, rapid_lines: List[Dict[str, Any]]) -> Dict[int, List[str]]
 
 def ocr_with_tesseract_multi(bw: np.ndarray, clahe: np.ndarray,
                              otsu: np.ndarray) -> Tuple[str, bool]:
-    """Tesseract multi-pass: uniform block (6) + sparse text (11), with rescue
-    passes (full page 3 + contrast variants) when the text looks weak."""
+    """Tesseract ladder (block 6, sparse 11, auto 3, contrast variants) with
+    early exit: stops as soon as the combined text scores solid, so weak reads
+    still get the full ladder but easy ones pay a single pass."""
     if not TESSERACT_OK:
         return "", False
-    out = [_tess(bw, 6), _tess(bw, 11)]
-    base = "\n".join(out)
-    hits, alpha = _ocr_score(base)
-    rescue = hits < 4 or alpha < 120
-    if rescue:
-        out += [_tess(bw, 3), _tess(clahe, 6), _tess(otsu, 6)]
+    out = []
+    for img, psm in ((bw, 6), (bw, 11), (bw, 3), (clahe, 6), (otsu, 6)):
+        out.append(_tess(img, psm))
+        hits, alpha = _ocr_score("\n".join(out))
+        if hits >= 4 and alpha >= 120:
+            break
     texts = [p for p in out if p and p.strip()]
-    return "\n".join(texts), rescue and len(texts) > 2
+    return "\n".join(texts), len(out) > 2 and len(texts) > 2
 
 # ============================================================ CLOUD OCR (Gemini)
 # Cloud-first when GEMINI_API_KEY is set (fast everywhere, ~seconds/photo);
@@ -1697,6 +1737,10 @@ def registry_list(q: str = "", branche: str = "", agent: str = "") -> List[Dict[
     out = []
     for r in rows:
         d = dict(r)
+        try:
+            d["photo_count"] = len(json.loads(d.get("data_json") or "{}").get("photos") or {})
+        except Exception:
+            d["photo_count"] = 0
         d.pop("data_json", None)
         d["agent_display"] = users.get(d.get("agent") or "", d.get("agent") or "")
         out.append(d)
@@ -1773,6 +1817,7 @@ class ContractSubmission(BaseModel):
     avenant_type: str = ""
     avenant_motif: str = ""
     police_prec: str = ""
+    job_id: str = ""
 
 # ============================================================ ENDPOINTS
 @app.get("/api/status")
@@ -1942,6 +1987,25 @@ async def job_status(job_id: str, request: Request):
         raise HTTPException(404, "Tache introuvable.")
     return {"job_id": job_id, **job}
 
+PHOTO_FIELDS = ("cni_recto", "cni_verso", "cg_recto", "cg_verso", "permis", "permis_verso")
+_PHOTO_EXTS = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
+               "webp": "image/webp", "bmp": "image/bmp"}
+_PHOTO_NAME_RE = re.compile(r"^[A-Za-z0-9]{12}_[a-z_]+\.(jpg|jpeg|png|webp|bmp)$")
+MAX_UPLOAD_BYTES = 25_000_000
+
+def _job_photos(job_id: str) -> Dict[str, str]:
+    """{field: filename} of the client photos saved for an analysis job."""
+    out: Dict[str, str] = {}
+    if not job_id or len(job_id) < 12:
+        return out
+    try:
+        for p in UPLOADS_DIR.glob(f"{job_id[:12]}_*"):
+            if p.is_file() and _PHOTO_NAME_RE.fullmatch(p.name):
+                out[p.name[13:].rsplit(".", 1)[0]] = p.name
+    except Exception:
+        pass
+    return out
+
 @app.post("/api/analyze")
 async def analyze(request: Request,
                   cni_recto: UploadFile = File(...),
@@ -1958,22 +2022,27 @@ async def analyze(request: Request,
         if not ct.startswith("image/") or ext not in ("jpg", "jpeg", "png", "webp", "bmp"):
             raise HTTPException(400, f"Fichier refuse ({up.filename}) : seules les photos (JPG/PNG/WebP) sont acceptees.")
 
-    async def save(up: UploadFile, tag: str) -> Tuple[bytes, str]:
+    job_id = uuid.uuid4().hex
+
+    async def save(up: UploadFile, field: str) -> Tuple[bytes, str]:
         content = await up.read()
-        ext = (up.filename or "jpg").split(".")[-1][:4] or "jpg"
-        name = f"{datetime.date.today().strftime('%Y%m%d')}_{tag}_{uuid.uuid4().hex[:6]}.{ext}"
+        if len(content) > MAX_UPLOAD_BYTES:
+            raise HTTPException(413, f"Fichier trop lourd ({up.filename}) : 25 Mo max.")
+        ext = (up.filename or "jpg").split(".")[-1].lower()[:4] or "jpg"
+        if ext not in _PHOTO_EXTS:
+            ext = "jpg"
+        name = f"{job_id[:12]}_{field}.{ext}"
         with open(UPLOADS_DIR / name, "wb") as f:
             f.write(content)
         return content, name
 
-    cni_r, _ = await save(cni_recto, "cni-r")
-    cg_r, _ = await save(cg_recto, "cg-r")
+    cni_r, _ = await save(cni_recto, "cni_recto")
+    cg_r, _ = await save(cg_recto, "cg_recto")
     pp, _ = await save(permis, "permis")
-    cni_v = await save(cni_verso, "cni-v") if cni_verso and cni_verso.filename else (None, None)
-    cg_v = await save(cg_verso, "cg-v") if cg_verso and cg_verso.filename else (None, None)
-    pp_v = await save(permis_verso, "pp-v") if permis_verso and permis_verso.filename else (None, None)
+    cni_v = await save(cni_verso, "cni_verso") if cni_verso and cni_verso.filename else (None, None)
+    cg_v = await save(cg_verso, "cg_verso") if cg_verso and cg_verso.filename else (None, None)
+    pp_v = await save(permis_verso, "permis_verso") if permis_verso and permis_verso.filename else (None, None)
 
-    job_id = uuid.uuid4().hex
     _job_set(job_id, {"status": "queued"})
     OCR_EXEC.submit(run_analyze_job, job_id, {
         "cni_r": cni_r, "cg_r": cg_r, "pp": pp, "cni_v": cni_v[0], "cg_v": cg_v[0],
@@ -2056,6 +2125,7 @@ async def generate_contract(request: Request, payload: ContractSubmission):
     year = today.year
     avenant_no = 0
     prime_diff = 0
+    odata: Dict[str, Any] = {}
     if data.get("avenant_of"):
         base = data["avenant_of"]
         cx = _db()
@@ -2101,8 +2171,12 @@ async def generate_contract(request: Request, payload: ContractSubmission):
     (CONTRACTS_PDF_DIR / f"{police_no}_facture.pdf").write_bytes(pdf_facture)
     CONTRACTS_DB[police_no] = {"data": data, "police": pdf_police,
                                "quittance": pdf_quittance, "facture": pdf_facture}
+    photos = _job_photos(data.get("job_id") or "")
+    if not photos and data.get("avenant_of"):
+        photos = odata.get("photos") or {}
     snap = {k: v for k, v in data.items()
             if k not in ("signature_data", "avenant_of", "data_json")}
+    snap["photos"] = photos
     data["data_json"] = json.dumps(snap, ensure_ascii=False, default=str)
     try:
         registry_save(data)
@@ -2168,6 +2242,29 @@ async def get_dossier(police_no: str, request: Request):
     user = _auth(request)
     r = _own_row(_valid_cid(police_no), user)
     return {"status": "success", "dossier": dict(r)}
+
+@app.get("/api/photo/{police_no}/{field}")
+async def get_photo(police_no: str, field: str, request: Request):
+    """Serve a client photo saved with the contract (validated route only)."""
+    user = _auth(request)
+    if field not in PHOTO_FIELDS:
+        raise HTTPException(404, "Photo introuvable.")
+    r = _own_row(_valid_cid(police_no), user)
+    try:
+        manifest = json.loads(r["data_json"] or "{}").get("photos") or {}
+    except Exception:
+        manifest = {}
+    name = manifest.get(field) or ""
+    if not _PHOTO_NAME_RE.fullmatch(name):
+        raise HTTPException(404, "Photo introuvable.")
+    path = (UPLOADS_DIR / name).resolve()
+    try:
+        path.relative_to(UPLOADS_DIR.resolve())
+    except ValueError:
+        raise HTTPException(404, "Photo introuvable.")
+    if not path.is_file():
+        raise HTTPException(404, "Photo introuvable.")
+    return FileResponse(path, media_type=_PHOTO_EXTS[name.rsplit(".", 1)[-1]])
 
 @app.delete("/api/registre/{police_no}")
 async def del_dossier(police_no: str, request: Request):
@@ -2702,3 +2799,22 @@ async def _startup_tasks():
         th.start()
     except Exception as e:
         print(f"[BACKUP] scheduler failed: {e}")
+    # Orphan upload sweep: client photos from abandoned analyses (never linked
+    # to a contract) older than 7 days are deleted. Linked photos stay.
+    try:
+        cx = _db()
+        refs = set()
+        for (dj,) in cx.execute("SELECT data_json FROM contracts").fetchall():
+            try:
+                refs.update((json.loads(dj or "{}").get("photos") or {}).values())
+            except Exception:
+                pass
+        cx.close()
+        now = time.time()
+        for p in UPLOADS_DIR.glob("*"):
+            if p.name.startswith(".") or p.name in refs or not p.is_file():
+                continue
+            if now - p.stat().st_mtime > 7 * 86400:
+                p.unlink()
+    except Exception as e:
+        print(f"[STARTUP] upload sweep failed: {e}")

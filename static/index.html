@@ -383,8 +383,17 @@
     <iframe id="pv-frame" class="w-full rounded-lg border flex-1" style="min-height:70vh" title="PDF"></iframe>
   </div>
 </div>
+<div id="photo-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+  <div class="bg-white rounded-xl shadow-2xl p-4 w-full max-w-4xl max-h-[90vh] flex flex-col">
+    <div class="flex items-center gap-2 mb-3">
+      <h3 class="font-extrabold agc-navy-text flex-1 text-sm" id="ph-title">Photos</h3>
+      <button onclick="document.getElementById('photo-modal').classList.add('hidden')" class="px-4 py-2 rounded-lg border-2 border-slate-300 font-bold text-slate-600 text-xs" data-i18n="cf_no">ANNULER</button>
+    </div>
+    <div id="ph-grid" class="grid grid-cols-2 md:grid-cols-3 gap-3 overflow-y-auto"></div>
+  </div>
+</div>
 
-<footer class="agc-navy text-white text-center text-[11px] py-3 mt-6" data-i18n="footer"><b>AGC Assurances — Générales du Cameroun</b> · Émission RCA conforme au Code CIMA · Usage interne agence · v5.4.1</footer>
+<footer class="agc-navy text-white text-center text-[11px] py-3 mt-6" data-i18n="footer"><b>AGC Assurances — Générales du Cameroun</b> · Émission RCA conforme au Code CIMA · Usage interne agence · v5.5.0</footer>
 
 <script>
 const I18N = {
@@ -403,6 +412,11 @@ s1_hint: "Documents à plat, nets, sans reflet. En cas de photo inexploitable, l
 s1_reg: "CONSULTER LE RÉPERTOIRE", s1_go: "LANCER LE CONTRÔLE OCR",
 s1_prog: "Redressement · Binarisation · Double moteur OCR local · Recoupement des 3 documents",
   s1_prog_cloud: "Lecture cloud Gemini · Recoupement des 3 documents",
+  photos: "Photos client",
+  ph_empty: "Aucune photo enregistrée pour ce contrat.",
+  ph_cni_r: "CNI recto", ph_cni_v: "CNI verso",
+  ph_cg_r: "Carte grise", ph_cg_v: "CG verso",
+  ph_pp: "Permis", ph_pp_v: "Permis verso",
 s1_bg: "Traitement en tâche de fond — vous pouvez patienter sur cette page.",
 s2_checks: "Vérifications croisées des 3 documents", s2_dossier: "DOSSIER FUSIONNÉ — Contrôlez et complétez (champs verts = lus par OCR)",
 s2_id: "Souscripteur / Assuré", s2_veh: "Véhicule", s2_drv: "Conducteur", s2_pol: "Police, prime (FCFA) et suivi agence",
@@ -425,7 +439,7 @@ ad_bk_dl: "TÉLÉCHARGER LA SAUVEGARDE", ad_bk_rs: "Restaurer :", ad_bk_auto: "T
 ad_imp: "Import de clients (CSV)", ad_imp_p: "Colonnes : police_no, nom, prenoms, telephone, immatriculation, marque, modele, effet, expiration, prime_ttc…",
 ad_audit: "Journal d'activité", th_agent: "Agent", th_det: "Détail",
 cf_h: "Confirmer", cf_no: "ANNULER", cf_yes: "CONFIRMER",
-footer: "<b>AGC Assurances — Générales du Cameroun</b> · Émission RCA conforme au Code CIMA · Usage interne agence · v5.4.1",
+footer: "<b>AGC Assurances — Générales du Cameroun</b> · Émission RCA conforme au Code CIMA · Usage interne agence · v5.5.0",
 f_titre: "Titre", f_nom: "Nom", f_prenoms: "Prénoms", f_pc: "P/C — Pour le compte de", f_nui: "NUI", f_prof: "Profession", f_adr: "Adresse", f_tel: "Téléphone *", f_email: "Email",
 f_immat: "Immatriculation", f_marque: "Marque", f_modele: "Type / Modèle", f_genre: "Genre", f_energie: "Énergie", f_places: "Places", f_pcv: "Puissance (CV)", f_cyl: "Cylindrée",
 f_pv: "Poids vide", f_cu: "Charge utile", f_pt: "Poids total (CG)", f_ptac: "PTAC calculé (vide + C.U.)", f_carr: "Carrosserie", f_mes: "1re mise en circul.", f_vin: "N° Série / VIN", f_cat: "Catégorie tarif",
@@ -449,6 +463,11 @@ s1_hint: "Documents flat, sharp, no glare. If a photo is unusable, the field sta
 s1_reg: "OPEN DIRECTORY", s1_go: "RUN OCR CHECK",
 s1_prog: "Deskew · Binarize · Dual local OCR engines · 3-document cross-check",
   s1_prog_cloud: "Gemini cloud reading · 3-document cross-check",
+  photos: "Client photos",
+  ph_empty: "No photos saved for this policy.",
+  ph_cni_r: "ID front", ph_cni_v: "ID back",
+  ph_cg_r: "Reg. card", ph_cg_v: "Reg. back",
+  ph_pp: "Licence", ph_pp_v: "Licence back",
 s1_bg: "Background processing — you can wait on this page.",
 s2_checks: "3-document cross-checks", s2_dossier: "MERGED FILE — Review and complete (green fields = read by OCR)",
 s2_id: "Policyholder / Insured", s2_veh: "Vehicle", s2_drv: "Driver", s2_pol: "Policy, premium (FCFA) and agency follow-up",
@@ -471,7 +490,7 @@ ad_bk_dl: "DOWNLOAD BACKUP", ad_bk_rs: "Restore:", ad_bk_auto: "DOWNLOAD LATEST 
 ad_imp: "Client import (CSV)", ad_imp_p: "Columns: police_no, nom, prenoms, telephone, immatriculation, marque, modele, effet, expiration, prime_ttc…",
 ad_audit: "Activity log", th_agent: "Agent", th_det: "Detail",
 cf_h: "Confirm", cf_no: "CANCEL", cf_yes: "CONFIRM",
-footer: "<b>AGC Assurances — Générales du Cameroun</b> · CIMA-compliant RCA issuing · Internal agency use · v5.4.1",
+footer: "<b>AGC Assurances — Générales du Cameroun</b> · CIMA-compliant RCA issuing · Internal agency use · v5.5.0",
 f_titre: "Title", f_nom: "Last name", f_prenoms: "First names", f_pc: "O/B/O — On behalf of", f_nui: "TIN", f_prof: "Occupation", f_adr: "Address", f_tel: "Phone *", f_email: "Email",
 f_immat: "Plate number", f_marque: "Make", f_modele: "Type / Model", f_genre: "Body type", f_energie: "Fuel", f_places: "Seats", f_pcv: "Power (HP)", f_cyl: "Engine size",
 f_pv: "Empty weight", f_cu: "Payload", f_pt: "Total weight (RC)", f_ptac: "GVW computed (empty + payload)", f_carr: "Bodywork", f_mes: "First registration", f_vin: "Serial / VIN", f_cat: "Tariff class",
@@ -500,6 +519,7 @@ function applyLang() {
 }
 const files = { cni_recto: null, cni_verso: null, cg_recto: null, cg_verso: null, permis: null, permis_verso: null };
 let ANALYSIS = null;
+let LAST_JOB = '';
 let LASTURLS = null;
 let LASTCID = null;
 let LAST_MERGED = null;
@@ -690,6 +710,7 @@ document.getElementById('btn-analyze').addEventListener('click', async () => {
     if (!resp.ok) { let d = 'Erreur ' + resp.status; try { d = (await resp.json()).detail || d; } catch (e) {} throw new Error(d); }
     const q = await resp.json();
     if (q.status !== 'queued' || !q.job_id) throw new Error('Unexpected server reply.');
+    LAST_JOB = q.job_id;
     ANALYSIS = await pollJob(q.job_id);
     if (dead) return;
     FORM_MODE = 'ocr';
@@ -886,6 +907,7 @@ async function loadDraft(police_no, mode) {
     if (!r.ok) { let d = 'Erreur ' + r.status; try { d = (await r.json()).detail || d; } catch (e) {} throw new Error(d); }
     const j = await r.json();
     FORM_MODE = mode;
+    LAST_JOB = '';
     const mb = document.getElementById('mode-banner');
     mb.classList.remove('hidden');
     mb.innerHTML = mode === 'avenant'
@@ -1092,6 +1114,7 @@ document.getElementById('btn-generate').addEventListener('click', async () => {
   const btn = document.getElementById('btn-generate');
   btn.disabled = true; btn.textContent = EN ? 'ISSUING…' : 'ÉMISSION EN COURS…';
   try {
+    mergedForm.job_id = LAST_JOB || '';
     mergedForm.signature_src = SIG_MODE;
     mergedForm.signature_data = SIG_MODE === 'agence' ? canvas.toDataURL('image/png') : SIG_MODE === 'photo' ? SIG_PHOTO : '';
     mergedForm.puissance_cv = +mergedForm.puissance_cv || 7;
@@ -1199,7 +1222,7 @@ function renderDirectory(rows) {
           <a class="text-blue-700 underline" href="#" data-pv="${withToken('/api/contract/' + escHtml(x.police_no) + '/pdf?type=quittance')}" data-lbl="${EN ? 'Receipt' : 'Quittance'} — ${escHtml(x.police_no)}" onclick="event.stopPropagation();event.preventDefault();previewPdf(this)">${EN ? 'Receipt' : 'Quit.'}</a> ·
           <a class="text-blue-700 underline" href="#" data-pv="${withToken('/api/contract/' + escHtml(x.police_no) + '/pdf?type=facture')}" data-lbl="${EN ? 'Invoice' : 'Facture'} — ${escHtml(x.police_no)}" onclick="event.stopPropagation();event.preventDefault();previewPdf(this)">${EN ? 'Invoice' : 'Fact.'}</a><br>
           <a class="text-blue-700 underline" href="#" data-pv="${withToken('/api/contract/' + escHtml(x.police_no) + '/dossier.pdf')}" data-lbl="${EN ? '3-in-1 file' : 'Dossier 3-en-1'} — ${escHtml(x.police_no)}" onclick="event.stopPropagation();event.preventDefault();previewPdf(this)">${EN ? '3-in-1 file' : 'Dossier 3-en-1'}</a> ·
-          <a class="text-blue-700 underline" href="${withToken('/api/contract/' + escHtml(x.police_no) + '/email.eml')}">Email</a>
+          <a class="text-blue-700 underline" href="${withToken('/api/contract/' + escHtml(x.police_no) + '/email.eml')}">Email</a>${+x.photo_count ? `<br><a class="text-blue-700 underline" href="#" onclick="event.stopPropagation();event.preventDefault();openPhotos('${escHtml(x.police_no)}')">\uD83D\uDCF7 ${EN ? 'Photos' : 'Photos'} (${+x.photo_count})</a>` : ''}
         </td>
         <td><div class="flex flex-col gap-1">
           ${cancelled ? '' : `          <button class="btn-xs" onclick="event.stopPropagation();loadDraft('${escHtml(x.police_no)}', 'avenant')">${EN ? 'Endorse' : 'Avenant'}</button>
@@ -1223,6 +1246,30 @@ function previewPdf(a) {
   document.getElementById('pv-title').textContent = t('pv_title') + ' — ' + (a.dataset.lbl || '');
   document.getElementById('pv-download').href = a.dataset.pv;
   document.getElementById('pdf-modal').classList.remove('hidden');
+}
+async function openPhotos(police_no) {
+  const EN = LANG === 'en';
+  const grid = document.getElementById('ph-grid');
+  document.getElementById('ph-title').textContent = t('photos') + ' — ' + police_no;
+  grid.innerHTML = `<div class="text-slate-400 text-sm col-span-3 py-6 text-center">${t('loading')}</div>`;
+  document.getElementById('photo-modal').classList.remove('hidden');
+  try {
+    const r = await apiFetch('/api/registre/' + encodeURIComponent(police_no));
+    const d = await r.json();
+    const man = JSON.parse(((d.dossier || {}).data_json) || '{}').photos || {};
+    const order = ['cni_recto', 'cni_verso', 'cg_recto', 'cg_verso', 'permis', 'permis_verso'];
+    const lbl = { cni_recto: t('ph_cni_r'), cni_verso: t('ph_cni_v'), cg_recto: t('ph_cg_r'), cg_verso: t('ph_cg_v'), permis: t('ph_pp'), permis_verso: t('ph_pp_v') };
+    const keys = order.filter(k => man[k]);
+    grid.innerHTML = keys.length ? keys.map(k => {
+      const url = withToken('/api/photo/' + encodeURIComponent(police_no) + '/' + k);
+      return `<a href="${url}" target="_blank" rel="noopener" class="block border rounded-xl overflow-hidden bg-white shadow-sm hover:shadow-md">
+        <img src="${url}" alt="${escHtml(lbl[k])}" loading="lazy" class="w-full h-40 object-cover">
+        <div class="text-[11px] font-bold text-slate-600 text-center py-1.5">${escHtml(lbl[k])}</div>
+      </a>`;
+    }).join('') : `<div class="text-slate-400 text-sm col-span-3 py-6 text-center">${t('ph_empty')}</div>`;
+  } catch (e) {
+    grid.innerHTML = `<div class="text-red-500 text-sm col-span-3 py-6 text-center">${EN ? 'Loading error.' : 'Erreur de chargement.'}</div>`;
+  }
 }
 async function doAnnuler(police_no) {
   const EN = LANG === 'en';

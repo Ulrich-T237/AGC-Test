@@ -244,4 +244,6 @@ app/
 
 **v5.4.1** — cloud Gemini rythmé (pause anti-quota/minute, nouvel essai sur 429, repli local par photo) + sous-titre d'analyse adapté au mode cloud.
 
+**v5.5.0** — OCR local accéléré (~40 % : micro-lecture ciblée, passes Tesseract à sortie anticipée) + photos clients sauvegardées et visibles sous chaque contrat du répertoire (avenants inclus).
+
 *AGC Assurances — Générales du Cameroun. Usage interne agence.*

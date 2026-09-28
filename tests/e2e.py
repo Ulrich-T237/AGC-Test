@@ -86,7 +86,7 @@ print("== A. status ==")
 s, b = api("GET", "/api/status")
 st = json.loads(b)
 check("status 200", s == 200, s)
-check("version 5.4.1", st.get("version") == "5.4.1", st.get("version"))
+check("version 5.5.0", st.get("version") == "5.5.0", st.get("version"))
 check("tesseract on", st.get("tesseract") is True, b[:150])
 check("rapidocr on", st.get("rapidocr") is True, b[:150])
 check("open mode", st.get("auth") == "open", b[:150])
@@ -176,6 +176,7 @@ SIG = ("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADU
 base_payload = dict(m)
 base_payload.update({"telephone": "+237690123456", "signature_data": SIG,
                      "signature_src": "agence"})
+base_payload["job_id"] = job
 bad = dict(base_payload, poids_total="2000 KG")  # ecart 520 kg > tolerance 50 kg
 s, b = api("POST", "/api/generate-contract", bad)
 check("PTAC incoherent bloque (422)", s == 422, (s, b[:120]))
@@ -187,6 +188,25 @@ s, b = api("POST", "/api/generate-contract", base_payload)
 d_gen = json.loads(b) if s == 200 else {}
 check("emission OK", s == 200 and d_gen.get("contract_id") == "RCA-001-2026-00001", b[:150])
 CID = d_gen.get("contract_id", "")
+
+print("== D2. photos client ==")
+s, b = api("GET", f"/api/registre/{CID}")
+_dos = json.loads(b).get("dossier", {}) if s == 200 else {}
+_man = {}
+try:
+    _man = json.loads(_dos.get("data_json") or "{}").get("photos") or {}
+except Exception:
+    pass
+check("manifeste 6 photos", len(_man) == 6, _man)
+rph = requests.get(BASE + f"/api/photo/{CID}/cni_recto", timeout=30)
+check("photo servie 200", rph.status_code == 200 and
+      rph.headers.get("content-type", "").startswith("image/"),
+      (rph.status_code, rph.headers.get("content-type")))
+check("photo non vide", len(rph.content) > 5000, len(rph.content))
+s, b = api("GET", f"/api/photo/{CID}/passport")
+check("photo champ inconnu 404", s == 404, s)
+s, b = api("GET", "/api/photo/..%2f..%2fetc%2fpasswd/cni_recto")
+check("photo traversal bloquee", s in (400, 404), s)
 
 print("== D. PDFs ==")
 from pypdf import PdfReader
@@ -206,6 +226,8 @@ check("agent = agence", rows and rows[0].get("agent") == "agence",
       rows[0].get("agent") if rows else None)
 check("agent_display = Agence", rows and rows[0].get("agent_display") == "Agence",
       rows[0].get("agent_display") if rows else None)
+check("photo_count = 6", rows and rows[0].get("photo_count") == 6,
+      rows[0].get("photo_count") if rows else None)
 s, b = api("GET", "/api/audit?limit=50")
 arows = json.loads(b).get("rows", []) if s == 200 else []
 check("journal signe agence",
@@ -218,12 +240,16 @@ check("stats par_agent = agence", any(p.get("agent") == "agence" for p in par), 
 print("== F. visibilite totale ==")
 p2 = dict(base_payload, nom="OPENTEST", prenoms="Amina",
           telephone="+237691111111", immatriculation="OU 100 AA")
+p2.pop("job_id", None)
 s, b = api("POST", "/api/generate-contract", p2)
 CID2 = json.loads(b).get("contract_id", "") if s == 200 else ""
 check("2e contrat", s == 200 and CID2 != "", b[:120])
 s, b = api("GET", "/api/registre?q=")
 rows = json.loads(b).get("rows", []) if s == 200 else []
 check("registre voit les 2 dossiers", len(rows) == 2, len(rows))
+check("2e sans photos", any(r.get("police_no") == CID2 and r.get("photo_count") == 0
+                            for r in rows),
+      [(r.get("police_no"), r.get("photo_count")) for r in rows])
 s, b = api("GET", f"/api/contract/{CID}/pdf?type=police")
 check("PDF dossier 1 lisible", s == 200 and b[:4] == b"%PDF", s)
 s, b = api("GET", f"/api/contract/{CID2}/pdf?type=police")
@@ -263,7 +289,8 @@ check("onglet NOUVEAU", ">NOUVEAU<" in html)
 check("onglet REPERTOIRE", ">RÉPERTOIRE<" in html)
 check("onglet PILOTAGE", ">PILOTAGE<" in html)
 check("modale apercu PDF", 'id="pdf-modal"' in html and "previewPdf" in html)
-check("pastille version", 'id="ver-chip"' in html and "v5.4.1" in html)
+check("modale photos", 'id="photo-modal"' in html and "openPhotos" in html)
+check("pastille version", 'id="ver-chip"' in html and "v5.5.0" in html)
 check("compression photos", "shrinkPhoto" in html and "1800" in html)
 check("erreur persistante", 'id="progress-error"' in html and "1200000" in html)
 check("poll hardened", "fetchWithTimeout" in html and "watchdog" in html)

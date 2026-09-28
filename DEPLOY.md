@@ -10,7 +10,8 @@
    registry, contracts and uploaded photos are **erased on every restart
    or redeploy**. Always **download your 3 PDFs immediately**. The office
    PC (`start.bat`) is the real archive, not the free site.
-3. **Slow CPU:** one OCR control (6 photos) takes ~2–4 min on free CPU
+   (Client photos saved under each contract are wiped too.)
+3. **Slow CPU:** one OCR control (6 photos) takes ~1–3 min on free CPU
    (under 1 min on a PC). Watch the live `photo X/6` progress and wait.
    Tip: set a `GEMINI_API_KEY` (see **Speed boost** below) and reading
    drops to seconds per photo even on free CPU.
@@ -57,7 +58,7 @@ Good to know:
 4. Render dashboard → your service → it rebuilds automatically (~5 min).
    If nothing happens: **Manual Deploy → Deploy latest commit**.
 5. Open your URL → **Ctrl+F5** → the header chip must show the new
-   version (e.g. **v5.4.1**). Done.
+   version (e.g. **v5.5.0**). Done.
 
 ## Path B — first deployment from scratch (~25 min)
 1. Create a free account at https://github.com (verify your email).
