@@ -1,4 +1,4 @@
-# AGC Assurances — Émission RCA Triple-Document (v5.3.2, outil interne agence)
+# AGC Assurances — Émission RCA Triple-Document (v5.3.3, outil interne agence)
 
 Plateforme d'émission de polices d'assurance automobile RCA par **contrôle OCR
 croisé de 3 documents obligatoires** : CNI + Carte Grise + Permis de conduire.
@@ -14,6 +14,12 @@ internes) : aucun appel cloud, aucun coût par document.
 512 Mo de RAM — hébergement gratuit), micro-lecture du sexe sous le
 libellé (nouvelle CNI), erreurs OCR affichées en persistant (jamais de
 spinner silencieux), dossier RapidOCR épinglé (1.2.3, reproductible).
+
+**v5.3.3** : suivi temps réel (photo X/6 + chrono), timeouts sur
+chaque requête (envoi 3 min, statut 30 s, garde-fou 21 min — plus de
+spinner infini silencieux), réessai auto des statuts transitoires,
+plafond 20 min, compression avec repli (fichier d'origine si elle
+cale), logs serveur par photo ([JOB …] photo X/6 en Ns).
 
 ---
 

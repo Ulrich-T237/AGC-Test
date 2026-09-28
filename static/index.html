@@ -384,7 +384,7 @@
   </div>
 </div>
 
-<footer class="agc-navy text-white text-center text-[11px] py-3 mt-6" data-i18n="footer"><b>AGC Assurances — Générales du Cameroun</b> · Émission RCA conforme au Code CIMA · Usage interne agence · v5.3.2</footer>
+<footer class="agc-navy text-white text-center text-[11px] py-3 mt-6" data-i18n="footer"><b>AGC Assurances — Générales du Cameroun</b> · Émission RCA conforme au Code CIMA · Usage interne agence · v5.3.3</footer>
 
 <script>
 const I18N = {
@@ -424,7 +424,7 @@ ad_bk_dl: "TÉLÉCHARGER LA SAUVEGARDE", ad_bk_rs: "Restaurer :", ad_bk_auto: "T
 ad_imp: "Import de clients (CSV)", ad_imp_p: "Colonnes : police_no, nom, prenoms, telephone, immatriculation, marque, modele, effet, expiration, prime_ttc…",
 ad_audit: "Journal d'activité", th_agent: "Agent", th_det: "Détail",
 cf_h: "Confirmer", cf_no: "ANNULER", cf_yes: "CONFIRMER",
-footer: "<b>AGC Assurances — Générales du Cameroun</b> · Émission RCA conforme au Code CIMA · Usage interne agence · v5.3.2",
+footer: "<b>AGC Assurances — Générales du Cameroun</b> · Émission RCA conforme au Code CIMA · Usage interne agence · v5.3.3",
 f_titre: "Titre", f_nom: "Nom", f_prenoms: "Prénoms", f_pc: "P/C — Pour le compte de", f_nui: "NUI", f_prof: "Profession", f_adr: "Adresse", f_tel: "Téléphone *", f_email: "Email",
 f_immat: "Immatriculation", f_marque: "Marque", f_modele: "Type / Modèle", f_genre: "Genre", f_energie: "Énergie", f_places: "Places", f_pcv: "Puissance (CV)", f_cyl: "Cylindrée",
 f_pv: "Poids vide", f_cu: "Charge utile", f_pt: "Poids total (CG)", f_ptac: "PTAC calculé (vide + C.U.)", f_carr: "Carrosserie", f_mes: "1re mise en circul.", f_vin: "N° Série / VIN", f_cat: "Catégorie tarif",
@@ -469,7 +469,7 @@ ad_bk_dl: "DOWNLOAD BACKUP", ad_bk_rs: "Restore:", ad_bk_auto: "DOWNLOAD LATEST 
 ad_imp: "Client import (CSV)", ad_imp_p: "Columns: police_no, nom, prenoms, telephone, immatriculation, marque, modele, effet, expiration, prime_ttc…",
 ad_audit: "Activity log", th_agent: "Agent", th_det: "Detail",
 cf_h: "Confirm", cf_no: "CANCEL", cf_yes: "CONFIRM",
-footer: "<b>AGC Assurances — Générales du Cameroun</b> · CIMA-compliant RCA issuing · Internal agency use · v5.3.2",
+footer: "<b>AGC Assurances — Générales du Cameroun</b> · CIMA-compliant RCA issuing · Internal agency use · v5.3.3",
 f_titre: "Title", f_nom: "Last name", f_prenoms: "First names", f_pc: "O/B/O — On behalf of", f_nui: "TIN", f_prof: "Occupation", f_adr: "Address", f_tel: "Phone *", f_email: "Email",
 f_immat: "Plate number", f_marque: "Make", f_modele: "Type / Model", f_genre: "Body type", f_energie: "Fuel", f_places: "Seats", f_pcv: "Power (HP)", f_cyl: "Engine size",
 f_pv: "Empty weight", f_cu: "Payload", f_pt: "Total weight (RC)", f_ptac: "GVW computed (empty + payload)", f_carr: "Bodywork", f_mes: "First registration", f_vin: "Serial / VIN", f_cat: "Tariff class",
@@ -645,17 +645,27 @@ document.getElementById('btn-analyze').addEventListener('click', async () => {
   const errLine = document.getElementById('progress-error');
   errLine.classList.add('hidden'); errLine.textContent = '';
   box.classList.remove('hidden');
-  let failed = false;
+  let failed = false, dead = false;
+  const watchdog = setTimeout(() => {
+    dead = true; failed = true;
+    clearInterval(progressTimer);
+    errLine.textContent = LANG === 'en' ? 'Server stopped responding — reload and retry (3 photos are enough).' : 'Le serveur ne répond plus — rechargez la page et réessayez (3 photos suffisent).';
+    errLine.classList.remove('hidden');
+    document.getElementById('btn-analyze').disabled = false;
+  }, 1260000);
   box.scrollIntoView({ behavior: 'smooth', block: 'center' });
   document.getElementById('btn-analyze').disabled = true;
-  let mi = 0;
-  const msgs = progressMsgs[LANG] || progressMsgs.fr;
-  document.getElementById('progress-title').textContent = msgs[0];
-  progressTimer = setInterval(() => { mi = (mi + 1) % msgs.length; document.getElementById('progress-title').textContent = msgs[mi]; }, 5000);
+  document.getElementById('progress-title').textContent = LANG === 'en' ? 'Preparing photos…' : 'Préparation des photos…';
   try {
     const up = {};
     for (const k of ['cni_recto', 'cg_recto', 'permis', 'cni_verso', 'cg_verso', 'permis_verso']) {
-      if (files[k]) up[k] = await shrinkPhoto(files[k]);
+      if (!files[k]) continue;
+      try {
+        up[k] = await Promise.race([
+          shrinkPhoto(files[k]),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('shrink-timeout')), 20000))
+        ]);
+      } catch (e) { up[k] = files[k]; }
     }
     const fd = new FormData();
     fd.append('cni_recto', up.cni_recto);
@@ -664,11 +674,18 @@ document.getElementById('btn-analyze').addEventListener('click', async () => {
     if (up.cni_verso) fd.append('cni_verso', up.cni_verso);
     if (up.cg_verso) fd.append('cg_verso', up.cg_verso);
     if (up.permis_verso) fd.append('permis_verso', up.permis_verso);
-    const resp = await apiFetch('/api/analyze', { method: 'POST', body: fd });
+    document.getElementById('progress-title').textContent = LANG === 'en' ? 'Uploading photos… (keep this page open)' : 'Envoi des photos… (ne fermez pas la page)';
+    let resp;
+    try {
+      resp = await fetchWithTimeout('/api/analyze', { method: 'POST', body: fd }, 180000);
+    } catch (e) {
+      throw new Error(LANG === 'en' ? 'Upload timed out — check your connection and retry.' : 'Envoi trop lent ou interrompu — vérifiez votre connexion et réessayez.');
+    }
     if (!resp.ok) { let d = 'Erreur ' + resp.status; try { d = (await resp.json()).detail || d; } catch (e) {} throw new Error(d); }
     const q = await resp.json();
     if (q.status !== 'queued' || !q.job_id) throw new Error('Unexpected server reply.');
     ANALYSIS = await pollJob(q.job_id);
+    if (dead) return;
     FORM_MODE = 'ocr';
     renderResults();
     gotoStep(2);
@@ -680,22 +697,48 @@ document.getElementById('btn-analyze').addEventListener('click', async () => {
     errLine.classList.remove('hidden');
     toast(msg, 'error');
   } finally {
+    clearTimeout(watchdog);
     clearInterval(progressTimer);
     if (!failed) box.classList.add('hidden');
     document.getElementById('btn-analyze').disabled = false;
   }
 });
+async function fetchWithTimeout(url, opts = {}, ms = 30000) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, { ...opts, signal: ctrl.signal });
+  } finally { clearTimeout(t); }
+}
 async function pollJob(job_id) {
   const t0 = Date.now();
-  while (Date.now() - t0 < 600000) {
-    const r = await apiFetch('/api/job/' + encodeURIComponent(job_id));
-    if (!r.ok) throw new Error('Job tracking failed (HTTP ' + r.status + ').');
+  const title = document.getElementById('progress-title');
+  const fmt = ms => { const s = Math.floor(ms / 1000); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
+  let bad = 0;
+  while (Date.now() - t0 < 1200000) {
+    let r;
+    try {
+      r = await fetchWithTimeout('/api/job/' + encodeURIComponent(job_id), {}, 30000);
+    } catch (e) {
+      bad++;
+      title.textContent = (LANG === 'en' ? 'Waiting for server… ' : 'Attente du serveur… ') + fmt(Date.now() - t0);
+      if (bad > 10) throw new Error(LANG === 'en' ? 'Server unreachable (10 attempts).' : 'Serveur injoignable (10 essais).');
+      await new Promise(res => setTimeout(res, 3000));
+      continue;
+    }
+    bad = 0;
+    if (!r.ok) {
+      if (r.status === 404) throw new Error(LANG === 'en' ? 'Job lost (server restarted?) — please retry.' : 'Tâche perdue (serveur redémarré ?) — relancez le contrôle.');
+      throw new Error('Job tracking failed (HTTP ' + r.status + ').');
+    }
     const j = await r.json();
     if (j.status === 'done') return j;
     if (j.status === 'error') throw new Error(j.error || 'OCR failed.');
+    const step = (j.done != null && j.total != null) ? ' — ' + (LANG === 'en' ? 'photo ' : 'photo ') + Math.min(j.done + 1, j.total) + '/' + j.total + (j.step ? ' (' + j.step + ')' : '') : '';
+    title.textContent = (LANG === 'en' ? 'Analyzing… ' : 'Analyse… ') + fmt(Date.now() - t0) + step;
     await new Promise(res => setTimeout(res, 2000));
   }
-  throw new Error('Timeout (10 min).');
+  throw new Error('Timeout (20 min).');
 }
 
 // ---------- render results ----------

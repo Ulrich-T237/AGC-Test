@@ -15,6 +15,7 @@ import shutil
 import datetime
 import unicodedata
 import threading
+import time
 import html
 import zipfile
 import csv
@@ -107,7 +108,7 @@ def get_rapid():
                     _rapid_failed = True
     return _rapid_engine
 
-app = FastAPI(title="AGC Assurances - Emission RCA triple-document", version="5.3.2")
+app = FastAPI(title="AGC Assurances - Emission RCA triple-document", version="5.3.3")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True,
                    allow_methods=["*"], allow_headers=["*"])
 from fastapi.staticfiles import StaticFiles
@@ -1679,13 +1680,25 @@ def _job_set(job_id: str, patch: Dict[str, Any]) -> None:
 def run_analyze_job(job_id: str, F: Dict[str, Any]) -> None:
     """Heavy OCR + parsing in the background worker. Never raises to the caller."""
     try:
-        _job_set(job_id, {"status": "running"})
-        ocr_cni_r = ocr_document(F["cni_r"])
-        ocr_cg_r = ocr_document(F["cg_r"])
-        ocr_permis = ocr_document(F["pp"])
-        ocr_cni_v = ocr_document(F["cni_v"]) if F["cni_v"] else None
-        ocr_cg_v = ocr_document(F["cg_v"]) if F["cg_v"] else None
-        ocr_pp_v = ocr_document(F["pp_v"]) if F.get("pp_v") else None
+        _job_set(job_id, {"status": "running", "step": "demarrage", "done": 0, "total": 0})
+        order = [("cni_r", "CNI recto"), ("cg_r", "carte grise"), ("pp", "permis"),
+                 ("cni_v", "CNI verso"), ("cg_v", "CG verso"), ("pp_v", "permis verso")]
+        present = [(k, label) for k, label in order if F.get(k)]
+        total = len(present)
+        ocrs = {}
+        for i, (k, label) in enumerate(present, 1):
+            _job_set(job_id, {"status": "running", "step": label, "done": i - 1,
+                              "total": total})
+            t0 = time.time()
+            ocrs[k] = ocr_document(F[k])
+            print(f"[JOB {job_id[:6]}] photo {i}/{total} ({label}) in "
+                  f"{time.time() - t0:.0f}s", flush=True)
+        _job_set(job_id, {"status": "running", "step": "fusion", "done": total,
+                          "total": total})
+        ocr_cni_r, ocr_cg_r, ocr_permis = ocrs["cni_r"], ocrs["cg_r"], ocrs["pp"]
+        ocr_cni_v = ocrs.get("cni_v")
+        ocr_cg_v = ocrs.get("cg_v")
+        ocr_pp_v = ocrs.get("pp_v")
 
         cni = parse_cni(ocr_cni_r, ocr_cni_v)
         cg = parse_carte_grise([ocr_cg_r] + ([ocr_cg_v] if ocr_cg_v else []))
@@ -1768,7 +1781,8 @@ def run_analyze_job(job_id: str, F: Dict[str, Any]) -> None:
         }
         _job_set(job_id, {"status": "done", "documents": docs, "checks": checks,
                           "score": score, "merged": merged,
-                          "merged_sources": merged_sources})
+                          "merged_sources": merged_sources,
+                          "progress": {"done": total, "total": total}})
     except Exception as e:
         _job_set(job_id, {"status": "error", "error": str(e)[:300]})
 
