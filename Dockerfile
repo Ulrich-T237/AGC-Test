@@ -10,10 +10,13 @@ WORKDIR /app
 COPY requirements.txt requirements-ocr.txt ./
 RUN pip install --no-cache-dir -r requirements.txt -r requirements-ocr.txt
 
+# Fail fast at build time if the neural OCR engine cannot start
+RUN python3 -c "from rapidocr_onnxruntime import RapidOCR; RapidOCR(); print('rapid ok')"
+
 COPY . .
 
 # Persistent disk should be mounted at /data (see render.yaml / DEPLOY.md)
-ENV STORAGE_DIR=/data PORT=8000
+ENV STORAGE_DIR=/data PORT=8000 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
 EXPOSE 8000
 
 CMD ["sh", "-c", "python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]

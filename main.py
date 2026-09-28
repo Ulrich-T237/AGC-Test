@@ -99,13 +99,15 @@ def get_rapid():
             if _rapid_engine is None and not _rapid_failed:
                 try:
                     from rapidocr_onnxruntime import RapidOCR
-                    _rapid_engine = RapidOCR()
+                    _rapid_engine = RapidOCR(det_limit_side_len=960,
+                                                   det_limit_type="max",
+                                                   det_model_path="")
                 except Exception as e:
                     print(f"[OCR] RapidOCR init failed: {e}")
                     _rapid_failed = True
     return _rapid_engine
 
-app = FastAPI(title="AGC Assurances - Emission RCA triple-document", version="5.3.1")
+app = FastAPI(title="AGC Assurances - Emission RCA triple-document", version="5.3.2")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True,
                    allow_methods=["*"], allow_headers=["*"])
 from fastapi.staticfiles import StaticFiles
@@ -122,7 +124,8 @@ async def _no_store(request: Request, call_next):
 CONTRACTS_DB: Dict[str, Dict[str, Any]] = {}
 
 # ============================================================ OCR PIPELINE
-MIN_WIDTH = 1800  # upscale small captures so characters are not pixelated
+MIN_WIDTH = 1800  # normalize width: small captures are upscaled for readability
+MAX_WIDTH = 1800  # huge phone photos are downscaled (validated regime, bounded RAM)
 
 def deskew_gray(gray: np.ndarray, max_angle: float = 15.0) -> Tuple[np.ndarray, float]:
     """Auto-rotate tilted captures using the minimum-area text rectangle."""
@@ -143,12 +146,17 @@ def deskew_gray(gray: np.ndarray, max_angle: float = 15.0) -> Tuple[np.ndarray, 
     return fixed, round(float(angle), 2)
 
 def preprocess(image_bytes: bytes) -> Dict[str, Any]:
-    """Grayscale -> resize(>=1800px) -> deskew -> denoise -> binarize."""
+    """Grayscale -> normalize(~1800px) -> deskew -> denoise -> binarize."""
     arr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
     if img is None:
         raise ValueError("Photo illisible (format non supporte).")
     h, w = img.shape[:2]
+    if max(h, w) > MAX_WIDTH:
+        s = MAX_WIDTH / max(h, w)
+        img = cv2.resize(img, (max(1, int(w * s)), max(1, int(h * s))),
+                         interpolation=cv2.INTER_AREA)
+        h, w = img.shape[:2]
     if w < MIN_WIDTH:
         s = MIN_WIDTH / w
         img = cv2.resize(img, (MIN_WIDTH, int(h * s)), interpolation=cv2.INTER_CUBIC)
@@ -175,13 +183,21 @@ def preprocess(image_bytes: bytes) -> Dict[str, Any]:
             "osd_angle": orient, "size": [int(img.shape[1]), int(img.shape[0])],
             "clean_preview": preview}
 
+RAPID_MAX = 1440  # best size/speed trade-off (measured: same segmentation as full-res, ~2x fewer pixels)
+
 def ocr_with_rapid(gray: np.ndarray) -> List[Dict[str, Any]]:
     engine = get_rapid()
     if engine is None:
         return []
+    h, w = gray.shape[:2]
+    small, k = gray, 1.0
+    if max(h, w) > RAPID_MAX:
+        k = RAPID_MAX / max(h, w)
+        small = cv2.resize(gray, (max(1, int(w * k)), max(1, int(h * k))),
+                           interpolation=cv2.INTER_AREA)
     with _rapid_lock:
         try:
-            res, _ = engine(gray)
+            res, _ = engine(small)
         except Exception as e:
             print(f"[OCR] rapid failed: {e}")
             return []
@@ -191,8 +207,9 @@ def ocr_with_rapid(gray: np.ndarray) -> List[Dict[str, Any]]:
             box, txt, conf = item
             txt = (txt or "").strip()
             if txt:
+                # boxes are rescaled back to gray coordinates (micro-read crops)
                 lines.append({"text": txt, "conf": round(float(conf), 3),
-                              "box": [[round(float(x), 1), round(float(y), 1)] for x, y in box]})
+                              "box": [[round(float(x) / k, 1), round(float(y) / k, 1)] for x, y in box]})
         except Exception:
             continue
     return lines
@@ -284,6 +301,7 @@ _MICRO = [
     (("CARROSSERIE", "CARBODY"), "below", r"^[A-Z]{2,8}$", "CARROSSERIE"),
     (("VEHICULEGAGE", "PLEDGEDVEHICLE"), "below", None, "GAGE"),
     (("SEXE",), "right", r"^[MF]$", None),
+    (("SEXE",), "below", r"^[MF]$", None),
     (("CAT9",), "right", r"^[A-E][1E]?$", None),
 ]
 _CARROSSERIE_CODES = {"CI", "CS", "CAB", "CABRIOLET", "BERLINE", "BREAK", "PICKUP",
@@ -388,6 +406,22 @@ def _micro_read(gray, rapid_lines: List[Dict[str, Any]]) -> Dict[int, List[str]]
                 if zone == "below":
                     cx0, cy0 = int(x0 - 1 * h), int(y1)
                     cx1, cy1 = int(x1 + 2 * h), int(y1 + 2.0 * h)
+                    # stop the crop where the next text line begins (same x
+                    # band): keeps neighbor-row text out of the zoomed read.
+                    for _other in rapid_lines:
+                        if _other is ln:
+                            continue
+                        try:
+                            _ob = _other.get("box") or []
+                            _oxs = [p[0] for p in _ob]
+                            _oys = [p[1] for p in _ob]
+                            if len(_oxs) < 4:
+                                continue
+                            _otop = min(_oys)
+                            if _otop > y1 + h and min(_oxs) < cx1 and max(_oxs) > cx0:
+                                cy1 = min(cy1, int(_otop) - 3)
+                        except Exception:
+                            continue
                 else:
                     cx0, cy0 = int(x1), int(y0 - 0.5 * h)
                     cx1, cy1 = int(x1 + 8 * h), int(y1 + 0.5 * h)

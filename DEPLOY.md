@@ -60,3 +60,32 @@ Gardez le PC de l'agence (`start.bat`) comme poste principal et
 utilisez la version en ligne pour le travail à domicile. Les deux
 ont des répertoires séparés : rapprochez-les via
 Pilotage > Export CSV si besoin.
+
+## Option B — Test gratuit à distance (Render, sans carte bancaire)
+
+Pour tester à distance quelques jours/semaines, puis tout supprimer.
+(Hugging Face demande désormais un abonnement payant pour les applis
+Docker : ne pas utiliser.)
+
+> Même avertissement : l'application est **ouverte** (pas de connexion).
+> Qui a l'adresse peut l'utiliser. Données de test uniquement, lien
+> partagé en privé, supprimez le service après les tests.
+
+Limites du gratuit : le service s'endort après 15 min sans visite
+(1re visite = ~1 min de réveil), 512 Mo de RAM (OCR plus lent),
+données effacées à chaque redémarrage (pensez au ZIP de sauvegarde
+dans Pilotage). Aucune carte requise.
+
+1. Mettez l'application sur GitHub (gratuit) :
+   - Créez un compte sur https://github.com, puis un dépôt `agc-rca-test`.
+   - Le plus simple : installez **GitHub Desktop**, clonez le dépôt,
+     copiez-y le contenu dézippé de l'application, Commit + Push.
+2. Créez un compte sur https://render.com (connexion via GitHub).
+3. **New > Web Service**, connectez le dépôt `agc-rca-test` :
+   Runtime **Docker**, région **Frankfurt** (la plus proche),
+   plan **Free**. Aucune variable à renseigner. Create.
+4. Attendez le build (~5-15 min, installation de l'OCR).
+   Adresse de test : `https://agc-rca-test.onrender.com`
+   (le 1er contrôle OCR télécharge les modèles, ~1-2 min en plus).
+5. **Retirer :** tableau Render → le service → Settings →
+   **Delete** (ou **Suspend** pour le couper en gardant la config).
