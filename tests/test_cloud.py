@@ -3,13 +3,16 @@
 Usage:  python3 tests/test_cloud.py
 Covers: _gemini_ready() gating (no key / OCR_MODE=local / key present),
 _cloud_prep() resize+JPEG, _gemini_transcribe() success/429/network paths
-via a stubbed requests.post, ocr_document_cloud() dict shape, and the
-fallback: a cloud failure inside ocr_document() must use the local
-pipeline (also stubbed, so no OCR engine runs).
+via a stubbed requests.post, pacing (_gemini_pace_nolock), smart 429
+(_gemini_retry_delay: per-minute wait+retry, per-day give up),
+ocr_document_cloud() dict shape, and the fallback: a cloud failure inside
+ocr_document() must use the local pipeline (also stubbed, so no OCR
+engine runs). Sleeps are mocked so pacing never slows the suite.
 """
 import io
 import os
 import sys
+from unittest import mock
 
 sys.path.insert(0, "/home/user/app")
 import main as M
@@ -81,7 +84,15 @@ def _fake_post(url, params=None, json=None, timeout=None):
 
 def _post_429(*a, **k):
     _calls.append(("429",))
-    return _Resp(429, {"error": "quota"})
+    return _Resp(429, {"error": "GenerateRequestsPerDayPerProject per day quota exceeded"})
+
+
+def _post_429_min_then_ok(*a, **k):
+    _calls.append(("429min",))
+    if len([c for c in _calls if c == ("429min",)]) == 1:
+        return _Resp(429, {"error": "GenerateRequestsPerMinutePerProject per minute quota exceeded"})
+    return _Resp(200, {"candidates": [{"content": {"parts": [
+        {"text": "RETRIED"}]}}]})
 
 
 def _post_boom(*a, **k):
@@ -93,6 +104,8 @@ _real_pre = M.preprocess
 _real_rapid = M.ocr_with_rapid
 _real_tess = M.ocr_with_tesseract_multi
 os.environ["GEMINI_API_KEY"] = "k"
+_sleep_patch = mock.patch.object(M.time, "sleep")
+_sleep_mock = _sleep_patch.start()
 try:
     M.requests.post = _fake_post
     t = M._gemini_transcribe(b"fakejpeg")
@@ -117,8 +130,37 @@ try:
         M._gemini_transcribe(b"x")
         check("transcribe: 429 raises", False)
     except RuntimeError as e:
-        check("transcribe: 429 raises", "429" in str(e), e)
-    check("transcribe: 429 no retry", len(_calls) == 1, len(_calls))
+        check("transcribe: 429-day raises", "429" in str(e), e)
+    check("transcribe: 429-day no retry", len(_calls) == 1, len(_calls))
+
+    check("429delay: per-day gives up",
+          M._gemini_retry_delay("Quota exceeded, requests per day") is None)
+    check("429delay: honors retry-in",
+          M._gemini_retry_delay("slow down, retry in 20s") == 20)
+    check("429delay: retry-in capped",
+          M._gemini_retry_delay("retry in 999s") == 120)
+    check("429delay: minute default",
+          M._gemini_retry_delay("per minute quota exceeded") == 45)
+    check("429delay: unknown defaults to wait",
+          M._gemini_retry_delay("weird") == 45)
+
+    M._last_gemini_t = M.time.time()
+    _w = M._gemini_pace_nolock()
+    check("pace: fresh stamp waits ~gap", 14.0 < _w <= 15.0, _w)
+    M._last_gemini_t = 0.0
+    _w0 = M._gemini_pace_nolock()
+    check("pace: old stamp no wait", _w0 == 0.0, _w0)
+    M._last_gemini_t = 0.0
+
+    _calls.clear()
+    _sleep_mock.reset_mock()
+    M.requests.post = _post_429_min_then_ok
+    t_retry = M._gemini_transcribe(b"x")
+    check("transcribe: 429/min retries then ok", t_retry == "RETRIED", t_retry)
+    check("transcribe: 429/min two calls", len(_calls) == 2, len(_calls))
+    check("transcribe: 429/min waited 45s",
+          any(c.args == (45,) for c in _sleep_mock.call_args_list),
+          _sleep_mock.call_args_list)
 
     M.requests.post = _post_boom
     try:
@@ -135,6 +177,8 @@ try:
     check("cloud doc: engines tag", doc["engines"] == ["Gemini-Cloud"], doc["engines"])
     check("cloud doc: preview",
           doc["clean_preview"].startswith("data:image/jpeg"), "")
+    check("cloud doc: no cloud_error", doc["cloud_error"] is None,
+          doc["cloud_error"])
 
     # ---- 5. fallback: cloud boom -> local pipeline ----------------------
     M.requests.post = _post_boom  # cloud attempted (key set) but dead
@@ -148,7 +192,12 @@ try:
           doc2["engines"] and doc2["engines"][0].startswith("RapidOCR-DL"),
           doc2["engines"])
     check("fallback: merged non-empty", bool(doc2["merged_lines"]), doc2["merged_lines"])
+    check("fallback: cloud_error recorded",
+          bool(doc2["cloud_error"]) and "cannot identify" in doc2["cloud_error"],
+          doc2["cloud_error"])
 finally:
+    _sleep_patch.stop()
+    M._last_gemini_t = 0.0
     M.requests.post = _real_post
     M.preprocess = _real_pre
     M.ocr_with_rapid = _real_rapid

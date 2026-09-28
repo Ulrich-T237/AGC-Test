@@ -37,6 +37,11 @@ Good to know:
   (Sept 2026 figures, varies by account). One control = 3–6 reads.
   Empty quota or any error → the app **automatically** falls back to
   local reading. Nothing breaks, it just gets slower.
+- **Pacing:** Google also limits reads *per minute* on free keys, so the
+  app spaces cloud reads ~15 s apart and retries once if Google says
+  "slow down" — a 6-photo control takes ~2–3 min on cloud (vs ~6+ min
+  local on free CPU). If a whole control still reads locally, the daily
+  quota is spent: it resets the next day.
 - **Privacy:** photos are sent to Google for reading. For sensitive
   batches use the office PC with `OCR_MODE=local` in `.env` (100 %
   local, no photo ever leaves the PC).
@@ -52,7 +57,7 @@ Good to know:
 4. Render dashboard → your service → it rebuilds automatically (~5 min).
    If nothing happens: **Manual Deploy → Deploy latest commit**.
 5. Open your URL → **Ctrl+F5** → the header chip must show the new
-   version (e.g. **v5.4.0**). Done.
+   version (e.g. **v5.4.1**). Done.
 
 ## Path B — first deployment from scratch (~25 min)
 1. Create a free account at https://github.com (verify your email).

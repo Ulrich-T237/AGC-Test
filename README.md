@@ -242,4 +242,6 @@ app/
 
 **v5.4.0** — lecture cloud Gemini en option (`GEMINI_API_KEY` dans `.env`) : quelques secondes/photo, repli local automatique si quota/coupure ; `OCR_MODE=local` = 100 % local.
 
+**v5.4.1** — cloud Gemini rythmé (pause anti-quota/minute, nouvel essai sur 429, repli local par photo) + sous-titre d'analyse adapté au mode cloud.
+
 *AGC Assurances — Générales du Cameroun. Usage interne agence.*

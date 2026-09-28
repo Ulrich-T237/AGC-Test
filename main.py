@@ -101,7 +101,7 @@ def get_rapid():
                     _rapid_failed = True
     return _rapid_engine
 
-app = FastAPI(title="AGC Assurances - Emission RCA triple-document", version="5.4.0")
+app = FastAPI(title="AGC Assurances - Emission RCA triple-document", version="5.4.1")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True,
                    allow_methods=["*"], allow_headers=["*"])
 from fastapi.staticfiles import StaticFiles
@@ -498,6 +498,10 @@ def ocr_with_tesseract_multi(bw: np.ndarray, clahe: np.ndarray,
 # via GEMINI_MODEL because Google renames models often.
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 GEMINI_TIMEOUT = 90
+GEMINI_MIN_GAP = float(os.getenv("GEMINI_MIN_GAP", "15"))  # s between cloud reads
+GEMINI_RETRY_WAIT = 45  # default wait on per-minute 429 before the one retry
+_gemini_lock = threading.Lock()
+_last_gemini_t = 0.0
 
 def _gemini_key() -> str:
     return (os.getenv("GEMINI_API_KEY") or "").strip()
@@ -514,6 +518,30 @@ _GEMINI_PROMPT = (
     "transcribed lines, one per line, no commentary, no markdown, no bullets."
 )
 
+def _gemini_retry_delay(body_text: str):
+    """Seconds to wait before ONE retry on a 429, or None = give up (daily
+    quota spent or key dead). Pure (never sleeps) so it is unit-testable."""
+    low = (body_text or "").lower()
+    if any(k in low for k in ("per day", "perday", "per_day", "daily",
+                              "day quota", "requests per day")):
+        return None
+    m = re.search(r"retry in (\d+)", low)
+    if m:
+        return max(1, min(int(m.group(1)), 120))
+    return GEMINI_RETRY_WAIT
+
+def _gemini_pace_nolock() -> float:
+    """Enforce GEMINI_MIN_GAP since the previous cloud read. Returns seconds
+    waited (0 if none). Caller must hold _gemini_lock."""
+    global _last_gemini_t
+    wait = GEMINI_MIN_GAP - (time.time() - _last_gemini_t)
+    if wait > 0:
+        time.sleep(wait)
+    else:
+        wait = 0.0
+    _last_gemini_t = time.time()
+    return wait
+
 def _gemini_transcribe(jpeg_bytes: bytes) -> str:
     url = ("https://generativelanguage.googleapis.com/v1beta/models/"
            f"{GEMINI_MODEL}:generateContent")
@@ -522,20 +550,36 @@ def _gemini_transcribe(jpeg_bytes: bytes) -> str:
         {"inline_data": {"mime_type": "image/jpeg",
                          "data": base64.b64encode(jpeg_bytes).decode()}}]}]}
     last = "no attempt"
-    for _ in range(2):
-        try:
-            r = requests.post(url, params={"key": _gemini_key()}, json=body,
-                              timeout=GEMINI_TIMEOUT)
-        except Exception as e:
-            last = f"network: {e}"
+    for attempt in range(2):
+        with _gemini_lock:
+            _gemini_pace_nolock()
+            try:
+                r = requests.post(url, params={"key": _gemini_key()}, json=body,
+                                  timeout=GEMINI_TIMEOUT)
+            except Exception as e:
+                last = f"network: {e}"
+                r = None
+        if r is None:
+            if attempt == 1:
+                break
             time.sleep(2)
             continue
-        if r.status_code == 429 or 400 <= r.status_code < 500:
+        if r.status_code == 429:
+            delay = _gemini_retry_delay(r.text)
+            if delay is None or attempt == 1:
+                raise RuntimeError(f"gemini quota ({r.status_code}): {r.text[:160]}")
+            print(f"[OCR] gemini rate/min, retry in {delay}s", flush=True)
+            time.sleep(delay)
+            last = "rate/minute, retried"
+            continue
+        if 400 <= r.status_code < 500:
             raise RuntimeError(f"gemini rejected ({r.status_code}): {r.text[:160]}")
         try:
             r.raise_for_status()
         except Exception as e:
             last = f"http: {e}"
+            if attempt == 1:
+                break
             time.sleep(2)
             continue
         try:
@@ -572,15 +616,18 @@ def ocr_document_cloud(image_bytes: bytes) -> Dict[str, Any]:
     return {"rapid_lines": [], "tesseract_text": "",
             "merged_lines": lines, "combined_text": "\n".join(lines),
             "clean_preview": preview, "osd_angle": 0,
-            "deskew_angle": 0.0, "engines": ["Gemini-Cloud"]}
+            "deskew_angle": 0.0, "engines": ["Gemini-Cloud"],
+            "cloud_error": None}
 
 def ocr_document(image_bytes: bytes) -> Dict[str, Any]:
     """Full OCR of one photo: cloud-first (Gemini) with automatic local
     fallback (OSD upright + cleanup + dual engine + rescue passes)."""
+    cloud_error = None
     if _gemini_ready():
         try:
             return ocr_document_cloud(image_bytes)
         except Exception as e:
+            cloud_error = str(e)[:200]
             print(f"[OCR] cloud failed, local fallback: {e}", flush=True)
     prep = preprocess(image_bytes)
     rapid_lines = ocr_with_rapid(prep["gray"])
@@ -629,10 +676,12 @@ def ocr_document(image_bytes: bytes) -> Dict[str, Any]:
         engines.append("Tesseract-Micro")
     if not rapid_lines and tess_text.strip():
         engines.append("Tesseract-Seul")
-    return {"rapid_lines": rapid_lines, "tesseract_text": tess_text,
-            "merged_lines": merged, "combined_text": "\n".join(merged),
-            "clean_preview": prep["clean_preview"], "osd_angle": prep["osd_angle"],
-            "deskew_angle": prep["deskew_angle"], "engines": engines}
+    doc = {"rapid_lines": rapid_lines, "tesseract_text": tess_text,
+           "merged_lines": merged, "combined_text": "\n".join(merged),
+           "clean_preview": prep["clean_preview"], "osd_angle": prep["osd_angle"],
+           "deskew_angle": prep["deskew_angle"], "engines": engines,
+           "cloud_error": cloud_error}
+    return doc
 
 # ============================================================ TEXT HELPERS
 def nospace(s: str) -> str:
