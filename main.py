@@ -108,7 +108,7 @@ def get_rapid():
                     _rapid_failed = True
     return _rapid_engine
 
-app = FastAPI(title="AGC Assurances - Emission RCA triple-document", version="5.3.3")
+app = FastAPI(title="AGC Assurances - Emission RCA triple-document", version="5.3.4")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True,
                    allow_methods=["*"], allow_headers=["*"])
 from fastapi.staticfiles import StaticFiles
@@ -227,14 +227,23 @@ def _tess_langs() -> str:
             _tess_lang = "eng"
     return _tess_lang
 
-def _tess(img: np.ndarray, psm: int) -> str:
+def _tess(img: np.ndarray, psm: int, timeout: int = 240) -> str:
+    """One tesseract call with a hard timeout: a hung/infinite OCR call must
+    never wedge the whole job, so on timeout it returns '' (no retry)."""
     try:
-        return pytesseract.image_to_string(img, lang=_tess_langs(), config=f"--oem 1 --psm {psm}") or ""
-    except Exception:
-        try:
-            return pytesseract.image_to_string(img, config=f"--oem 1 --psm {psm}") or ""
-        except Exception:
+        return pytesseract.image_to_string(img, lang=_tess_langs(),
+                                           config=f"--oem 1 --psm {psm}",
+                                           timeout=timeout) or ""
+    except RuntimeError as e:
+        if "timeout" in str(e).lower():
             return ""
+    except Exception:
+        pass
+    try:
+        return pytesseract.image_to_string(img, config=f"--oem 1 --psm {psm}",
+                                           timeout=timeout) or ""
+    except Exception:
+        return ""
 
 _OCR_LABELS = ("NOM", "PRENOM", "NAISSANCE", "SEXE", "EXPIR", "CNI", "NIC",
     "PROFESSION", "DELIVRANCE", "IMMATRICULATION", "CHASSIS", "TITULAIRE",
@@ -252,7 +261,7 @@ def _tess_mean_conf(gray_small: np.ndarray) -> float:
     """Mean Tesseract word confidence (upright text scores high, garbage low)."""
     try:
         d = pytesseract.image_to_data(gray_small, lang=_tess_langs(),
-                                      config="--oem 1 --psm 6",
+                                      config="--oem 1 --psm 6", timeout=60,
                                       output_type=pytesseract.Output.DICT)
         confs = [float(c) for c, t in zip(d.get("conf", []), d.get("text", []))
                  if str(t or "").strip() and float(c) > 0]
@@ -276,7 +285,7 @@ def _osd_rotation(gray: np.ndarray) -> int:
             s = 1000 / max(h, w)
             small = cv2.resize(gray, (max(1, int(w * s)), max(1, int(h * s))),
                                interpolation=cv2.INTER_AREA)
-        osd = pytesseract.image_to_osd(small, config="--oem 1")
+        osd = pytesseract.image_to_osd(small, config="--oem 1", timeout=60)
         mo = re.search(r"Orientation in degrees:\s*(\d+)", osd)
         mc = re.search(r"Orientation confidence:\s*([\d.]+)", osd)
         if not (mo and mc and float(mc.group(1)) >= 2.0):
@@ -441,7 +450,7 @@ def _micro_read(gray, rapid_lines: List[Dict[str, Any]]) -> Dict[int, List[str]]
                     for psm in (6, 7, 8):
                         if win:
                             break
-                        out = _tess(trimmed, psm) or ""
+                        out = _tess(trimmed, psm, 60) or ""
                         for raw in out.split():
                             tok = re.sub(r"[^A-Z0-9]", "",
                                          strip_accents(raw).upper()).strip()
@@ -494,18 +503,27 @@ def ocr_document(image_bytes: bytes) -> Dict[str, Any]:
     + rescue passes on weak reads + merged lines."""
     prep = preprocess(image_bytes)
     rapid_lines = ocr_with_rapid(prep["gray"])
-    tess_text, tess_multi = ocr_with_tesseract_multi(prep["bw"], prep["clahe"], prep["otsu"])
+    rapid_text = "\n".join(l["text"] for l in rapid_lines)
     rapid_multi = False
-    if not rapid_lines or _ocr_score("\n".join(l["text"] for l in rapid_lines) + "\n" + tess_text)[0] < 3:
+    if not rapid_lines or _ocr_score(rapid_text)[0] < 3:
         extra = ocr_with_rapid(prep["clahe"])
         if extra:
             have = {" ".join(x["text"].split()) for x in rapid_lines}
             rapid_lines = rapid_lines + [l for l in extra if " ".join(l["text"].split()) not in have]
             rapid_multi = True
+            rapid_text = "\n".join(l["text"] for l in rapid_lines)
     try:
         micro = _micro_read(prep["gray"], rapid_lines)
     except Exception:
         micro = {}
+    # Adaptive: full-page tesseract costs ~90% of the time but adds ~nothing
+    # when rapid already read plenty (measured). Run it only for weak reads.
+    alpha_rapid = sum(1 for c in rapid_text if c.isalnum())
+    if len(rapid_lines) >= 6 and alpha_rapid >= 100:
+        tess_text, tess_multi = "", False
+    else:
+        tess_text, tess_multi = ocr_with_tesseract_multi(prep["bw"], prep["clahe"],
+                                                         prep["otsu"])
     merged, seen = [], set()
     for _ri, ln in enumerate(rapid_lines):
         k = " ".join(ln["text"].split())
@@ -526,6 +544,8 @@ def ocr_document(image_bytes: bytes) -> Dict[str, Any]:
         engines.append("RapidOCR-DL" + ("+CLAHE" if rapid_multi else ""))
     if tess_text.strip():
         engines.append("Tesseract-OCR" + ("-Multi" if tess_multi else ""))
+    if micro:
+        engines.append("Tesseract-Micro")
     if not rapid_lines and tess_text.strip():
         engines.append("Tesseract-Seul")
     return {"rapid_lines": rapid_lines, "tesseract_text": tess_text,
